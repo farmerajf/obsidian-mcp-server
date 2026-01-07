@@ -1,0 +1,7 @@
+{
+  "port": 3000,
+  "apiKey": "test-key",
+  "paths": {
+    "remote-filesystem": "/Users/adam/Library/Mobile Documents/com~apple~CloudDocs/Documents/Obsidian Vault/"
+  }
+}
