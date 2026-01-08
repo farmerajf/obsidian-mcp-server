@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "fs";
-import { basename, extname } from "path";
+import { basename } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
-import { resolvePath, toVirtualPath, getAllBasePaths } from "../utils/paths.js";
+import { resolvePath, toVirtualPath, getAllVaults } from "../utils/paths.js";
 
 interface ResolvedLink {
   targetPath: string | null;
@@ -189,13 +189,13 @@ async function resolveLink(link: string, config: Config): Promise<ResolvedLink> 
   const linkName = cleanLink.trim();
 
   // Search for the file
-  for (const basePath of getAllBasePaths(config)) {
+  for (const vault of getAllVaults(config)) {
     // Try exact path match first
     const exactPath = linkName.endsWith(".md") ? linkName : `${linkName}.md`;
-    const fullExactPath = `${basePath}/${exactPath}`;
+    const fullExactPath = `${vault.basePath}/${exactPath}`;
     if (existsSync(fullExactPath)) {
       return {
-        targetPath: toVirtualPath(fullExactPath, basePath),
+        targetPath: toVirtualPath(fullExactPath, vault.basePath, vault.name),
         targetExists: true,
         heading,
         blockRef,
@@ -205,7 +205,7 @@ async function resolveLink(link: string, config: Config): Promise<ResolvedLink> 
 
     // Search by filename anywhere in vault
     const files = await glob("**/*.md", {
-      cwd: basePath,
+      cwd: vault.basePath,
       absolute: true,
       ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
     });
@@ -214,7 +214,7 @@ async function resolveLink(link: string, config: Config): Promise<ResolvedLink> 
       const fileName = basename(filePath, ".md");
       if (fileName.toLowerCase() === linkName.toLowerCase()) {
         return {
-          targetPath: toVirtualPath(filePath, basePath),
+          targetPath: toVirtualPath(filePath, vault.basePath, vault.name),
           targetExists: true,
           heading,
           blockRef,
@@ -226,7 +226,7 @@ async function resolveLink(link: string, config: Config): Promise<ResolvedLink> 
     // Also check for non-markdown files (images, pdfs, etc.)
     if (!linkName.endsWith(".md")) {
       const allFiles = await glob("**/*", {
-        cwd: basePath,
+        cwd: vault.basePath,
         absolute: true,
         nodir: true,
         ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
@@ -236,7 +236,7 @@ async function resolveLink(link: string, config: Config): Promise<ResolvedLink> 
         const fileName = basename(filePath);
         if (fileName.toLowerCase() === linkName.toLowerCase()) {
           return {
-            targetPath: toVirtualPath(filePath, basePath),
+            targetPath: toVirtualPath(filePath, vault.basePath, vault.name),
             targetExists: true,
             heading: null,
             blockRef: null,

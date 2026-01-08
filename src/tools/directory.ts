@@ -98,7 +98,7 @@ export async function renameDirectory(
 
     renameSync(resolved.fullPath, newPath);
 
-    const newVirtualPath = toVirtualPath(newPath, resolved.basePath);
+    const newVirtualPath = toVirtualPath(newPath, resolved.basePath, resolved.vaultName);
 
     return {
       content: [
@@ -208,7 +208,7 @@ export async function deleteDirectory(
               {
                 success: true,
                 path,
-                trashedTo: `/${TRASH_FOLDER}/${trashedName}`,
+                trashedTo: `/${resolved.vaultName}/${TRASH_FOLDER}/${trashedName}`,
                 itemsDeleted: entries.length,
                 message: "Directory moved to trash",
               },

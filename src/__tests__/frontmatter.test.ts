@@ -9,7 +9,7 @@ const config = createTestConfig();
 
 describe("getFrontmatter", () => {
   it("extracts frontmatter from file", async () => {
-    const result = await getFrontmatter("/index.md", config);
+    const result = await getFrontmatter("/vault/index.md", config);
     const data = getTestResult(result) as {
       hasFrontmatter: boolean;
       frontmatter: { title: string; tags: string[] };
@@ -24,7 +24,7 @@ describe("getFrontmatter", () => {
   });
 
   it("returns hasFrontmatter: false for file without frontmatter", async () => {
-    const result = await getFrontmatter("/plain.md", config);
+    const result = await getFrontmatter("/vault/plain.md", config);
     const data = getTestResult(result) as { hasFrontmatter: boolean; frontmatter: unknown };
 
     expect(data.hasFrontmatter).toBe(false);
@@ -33,7 +33,7 @@ describe("getFrontmatter", () => {
 
   it("parses various YAML types", async () => {
     await createFile(
-      "/yaml-types.md",
+      "/vault/yaml-types.md",
       `---
 string: hello
 number: 42
@@ -46,7 +46,7 @@ Content`,
       config
     );
 
-    const result = await getFrontmatter("/yaml-types.md", config);
+    const result = await getFrontmatter("/vault/yaml-types.md", config);
     const data = getTestResult(result) as {
       frontmatter: {
         string: string;
@@ -65,7 +65,7 @@ Content`,
   });
 
   it("returns error for non-existent file", async () => {
-    const result = await getFrontmatter("/nonexistent.md", config);
+    const result = await getFrontmatter("/vault/nonexistent.md", config);
     expect(result.isError).toBe(true);
   });
 });
@@ -73,7 +73,7 @@ Content`,
 describe("updateFrontmatter", () => {
   it("updates existing frontmatter fields", async () => {
     await createFile(
-      "/update-fm.md",
+      "/vault/update-fm.md",
       `---
 title: Old Title
 status: draft
@@ -84,7 +84,7 @@ Content`,
     );
 
     const result = await updateFrontmatter(
-      "/update-fm.md",
+      "/vault/update-fm.md",
       { title: "New Title", status: "published" },
       config
     );
@@ -95,14 +95,14 @@ Content`,
     expect(data.frontmatter.status).toBe("published");
 
     // Verify file content
-    const readResult = await readFile("/update-fm.md", config);
+    const readResult = await readFile("/vault/update-fm.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toContain("title: New Title");
   });
 
   it("adds new frontmatter fields", async () => {
     await createFile(
-      "/add-fm.md",
+      "/vault/add-fm.md",
       `---
 title: Test
 ---
@@ -112,7 +112,7 @@ Content`,
     );
 
     const result = await updateFrontmatter(
-      "/add-fm.md",
+      "/vault/add-fm.md",
       { author: "Test Author", category: "notes" },
       config
     );
@@ -130,7 +130,7 @@ Content`,
 
   it("removes specified keys", async () => {
     await createFile(
-      "/remove-fm.md",
+      "/vault/remove-fm.md",
       `---
 title: Test
 toRemove: value
@@ -141,7 +141,7 @@ Content`,
       config
     );
 
-    const result = await updateFrontmatter("/remove-fm.md", {}, config, ["toRemove"]);
+    const result = await updateFrontmatter("/vault/remove-fm.md", {}, config, ["toRemove"]);
     const data = getTestResult(result) as { success: boolean; frontmatter: Record<string, unknown> };
 
     expect(data.success).toBe(true);
@@ -150,15 +150,15 @@ Content`,
   });
 
   it("creates frontmatter on file without it", async () => {
-    await createFile("/no-fm.md", "Just content\nNo frontmatter", config);
+    await createFile("/vault/no-fm.md", "Just content\nNo frontmatter", config);
 
-    const result = await updateFrontmatter("/no-fm.md", { title: "Added Title" }, config);
+    const result = await updateFrontmatter("/vault/no-fm.md", { title: "Added Title" }, config);
     const data = getTestResult(result) as { success: boolean; frontmatter: { title: string } };
 
     expect(data.success).toBe(true);
     expect(data.frontmatter.title).toBe("Added Title");
 
-    const readResult = await readFile("/no-fm.md", config);
+    const readResult = await readFile("/vault/no-fm.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toMatch(/^---\n/);
     expect(readData.content).toContain("Just content");
@@ -166,7 +166,7 @@ Content`,
 
   it("detects ETag conflict", async () => {
     await createFile(
-      "/etag-fm.md",
+      "/vault/etag-fm.md",
       `---
 title: Test
 ---
@@ -176,7 +176,7 @@ Content`,
     );
 
     const result = await updateFrontmatter(
-      "/etag-fm.md",
+      "/vault/etag-fm.md",
       { title: "New Title" },
       config,
       undefined,
@@ -189,7 +189,7 @@ Content`,
   });
 
   it("returns error for non-existent file", async () => {
-    const result = await updateFrontmatter("/nonexistent.md", { title: "Test" }, config);
+    const result = await updateFrontmatter("/vault/nonexistent.md", { title: "Test" }, config);
     expect(result.isError).toBe(true);
   });
 });

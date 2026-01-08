@@ -3,7 +3,7 @@ import { basename } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
-import { resolvePath, toVirtualPath, getAllBasePaths } from "../utils/paths.js";
+import { resolvePath, toVirtualPath, getAllVaults } from "../utils/paths.js";
 
 const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/;
 
@@ -33,18 +33,18 @@ export async function searchByDate(
     // Calculate date range from condition
     const { startDate, endDate } = parseDateCondition(condition);
 
-    // Determine search paths
-    let searchPaths: string[];
+    // Determine search vaults
+    let searchVaults: Array<{ name: string; basePath: string }>;
     if (path) {
       const resolved = resolvePath(path, config);
-      searchPaths = [resolved.fullPath];
+      searchVaults = [{ name: resolved.vaultName, basePath: resolved.fullPath }];
     } else {
-      searchPaths = getAllBasePaths(config);
+      searchVaults = getAllVaults(config);
     }
 
-    for (const basePath of searchPaths) {
+    for (const vault of searchVaults) {
       const files = await glob("**/*.md", {
-        cwd: basePath,
+        cwd: vault.basePath,
         absolute: true,
         ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
       });
@@ -96,7 +96,7 @@ export async function searchByDate(
             title = basename(filePath, ".md");
           }
 
-          const virtualPath = toVirtualPath(filePath, basePath);
+          const virtualPath = toVirtualPath(filePath, vault.basePath, vault.name);
           results.push({
             path: virtualPath,
             title,

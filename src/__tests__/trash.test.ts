@@ -10,16 +10,16 @@ const config = createTestConfig();
 describe("trash management", () => {
   describe("deleteFile (soft)", () => {
     it("moves file to .trash", async () => {
-      await createFile("/to-trash.md", "Trash me", config);
+      await createFile("/vault/to-trash.md", "Trash me", config);
 
-      const result = await deleteFile("/to-trash.md", config, false);
+      const result = await deleteFile("/vault/to-trash.md", config, false);
       const data = getTestResult(result) as { success: boolean; trashedTo: string };
 
       expect(data.success).toBe(true);
       expect(data.trashedTo).toContain(".trash");
 
       // Original file should not exist
-      const readResult = await readFile("/to-trash.md", config);
+      const readResult = await readFile("/vault/to-trash.md", config);
       expect(readResult.isError).toBe(true);
     });
   });
@@ -27,8 +27,8 @@ describe("trash management", () => {
   describe("listTrash", () => {
     it("lists items in trash", async () => {
       // Create and delete a file
-      await createFile("/trash-item.md", "Content", config);
-      await deleteFile("/trash-item.md", config, false);
+      await createFile("/vault/trash-item.md", "Content", config);
+      await deleteFile("/vault/trash-item.md", config, false);
 
       const result = await listTrash(config);
       const data = getTestResult(result) as {
@@ -41,8 +41,8 @@ describe("trash management", () => {
     });
 
     it("includes timestamp information", async () => {
-      await createFile("/timed-trash.md", "Content", config);
-      await deleteFile("/timed-trash.md", config, false);
+      await createFile("/vault/timed-trash.md", "Content", config);
+      await deleteFile("/vault/timed-trash.md", config, false);
 
       const result = await listTrash(config);
       const data = getTestResult(result) as { items: { trashedAt: string }[] };
@@ -55,57 +55,57 @@ describe("trash management", () => {
 
   describe("restoreFromTrash", () => {
     it("restores file from trash", async () => {
-      await createFile("/restore-me.md", "Restore this content", config);
-      const deleteResult = await deleteFile("/restore-me.md", config, false);
+      await createFile("/vault/restore-me.md", "Restore this content", config);
+      const deleteResult = await deleteFile("/vault/restore-me.md", config, false);
       const deleteData = getTestResult(deleteResult) as { trashedTo: string };
 
       // Get the trashed filename
       const trashedPath = deleteData.trashedTo;
 
-      const result = await restoreFromTrash(trashedPath, config, "/restore-me.md", false);
+      const result = await restoreFromTrash(trashedPath, config, "/vault/restore-me.md", false);
       const data = getTestResult(result) as { success: boolean };
 
       expect(data.success).toBe(true);
 
       // File should be restored
-      const readResult = await readFile("/restore-me.md", config);
+      const readResult = await readFile("/vault/restore-me.md", config);
       const readData = getTestResult(readResult) as { content: string };
       expect(readData.content).toBe("Restore this content");
     });
 
     it("restores to custom path", async () => {
-      await createFile("/original.md", "Original content", config);
-      const deleteResult = await deleteFile("/original.md", config, false);
+      await createFile("/vault/original.md", "Original content", config);
+      const deleteResult = await deleteFile("/vault/original.md", config, false);
       const deleteData = getTestResult(deleteResult) as { trashedTo: string };
 
       const trashedPath = deleteData.trashedTo;
 
-      const result = await restoreFromTrash(trashedPath, config, "/restored-elsewhere.md", false);
+      const result = await restoreFromTrash(trashedPath, config, "/vault/restored-elsewhere.md", false);
       const data = getTestResult(result) as { success: boolean; restoredTo: string };
 
       expect(data.success).toBe(true);
-      expect(data.restoredTo).toBe("/restored-elsewhere.md");
+      expect(data.restoredTo).toBe("/vault/restored-elsewhere.md");
 
       // File should exist at new location
-      const readResult = await readFile("/restored-elsewhere.md", config);
+      const readResult = await readFile("/vault/restored-elsewhere.md", config);
       expect(readResult.isError).toBeFalsy();
     });
 
     it("returns error if destination exists without overwrite", async () => {
-      await createFile("/will-conflict.md", "Content 1", config);
-      const deleteResult = await deleteFile("/will-conflict.md", config, false);
+      await createFile("/vault/will-conflict.md", "Content 1", config);
+      const deleteResult = await deleteFile("/vault/will-conflict.md", config, false);
       const deleteData = getTestResult(deleteResult) as { trashedTo: string };
 
       // Create another file at the restore location
-      await createFile("/will-conflict.md", "Content 2", config);
+      await createFile("/vault/will-conflict.md", "Content 2", config);
 
-      const result = await restoreFromTrash(deleteData.trashedTo, config, "/will-conflict.md", false);
+      const result = await restoreFromTrash(deleteData.trashedTo, config, "/vault/will-conflict.md", false);
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("already exists");
     });
 
     it("returns error for non-existent trash item", async () => {
-      const result = await restoreFromTrash("/.trash/nonexistent.1234567890", config);
+      const result = await restoreFromTrash("/vault/.trash/nonexistent.1234567890", config);
       expect(result.isError).toBe(true);
     });
   });
@@ -119,10 +119,10 @@ describe("trash management", () => {
 
     it("empties all trash items", async () => {
       // Create and trash some files
-      await createFile("/empty-me-1.md", "Content 1", config);
-      await createFile("/empty-me-2.md", "Content 2", config);
-      await deleteFile("/empty-me-1.md", config, false);
-      await deleteFile("/empty-me-2.md", config, false);
+      await createFile("/vault/empty-me-1.md", "Content 1", config);
+      await createFile("/vault/empty-me-2.md", "Content 2", config);
+      await deleteFile("/vault/empty-me-1.md", config, false);
+      await deleteFile("/vault/empty-me-2.md", config, false);
 
       // Verify items are in trash
       const beforeResult = await listTrash(config);

@@ -14,7 +14,7 @@ describe("resolveWikilink", () => {
 
     expect(data.resolved).toBe(true);
     expect(data.targetExists).toBe(true);
-    expect(data.targetPath).toBe("/todo.md");
+    expect(data.targetPath).toBe("/vault/todo.md");
   });
 
   it("resolves wikilink with brackets", async () => {
@@ -22,7 +22,7 @@ describe("resolveWikilink", () => {
     const data = getTestResult(result) as { resolved: boolean; targetPath: string };
 
     expect(data.resolved).toBe(true);
-    expect(data.targetPath).toBe("/todo.md");
+    expect(data.targetPath).toBe("/vault/todo.md");
   });
 
   it("resolves wikilink with heading", async () => {
@@ -69,7 +69,7 @@ describe("resolveWikilink", () => {
 
 describe("extractWikilinks", () => {
   it("extracts all wikilinks from file", async () => {
-    const result = await extractWikilinks("/index.md", config, false, true);
+    const result = await extractWikilinks("/vault/index.md", config, false, true);
     const data = getTestResult(result) as { links: { raw: string; isEmbed: boolean }[] };
 
     expect(data.links.length).toBeGreaterThan(0);
@@ -78,7 +78,7 @@ describe("extractWikilinks", () => {
 
   it("includes embeds when requested", async () => {
     // project-a.md has an embed ![[attachment.png]]
-    const result = await extractWikilinks("/notes/projects/project-a.md", config, false, true);
+    const result = await extractWikilinks("/vault/notes/projects/project-a.md", config, false, true);
     const data = getTestResult(result) as { links: { raw: string; isEmbed: boolean }[] };
 
     const embeds = data.links.filter((l) => l.isEmbed);
@@ -86,7 +86,7 @@ describe("extractWikilinks", () => {
   });
 
   it("excludes embeds when not requested", async () => {
-    const result = await extractWikilinks("/notes/projects/project-a.md", config, false, false);
+    const result = await extractWikilinks("/vault/notes/projects/project-a.md", config, false, false);
     const data = getTestResult(result) as { links: { isEmbed: boolean }[] };
 
     const embeds = data.links.filter((l) => l.isEmbed);
@@ -94,7 +94,7 @@ describe("extractWikilinks", () => {
   });
 
   it("includes line and column for each link", async () => {
-    const result = await extractWikilinks("/index.md", config, false, true);
+    const result = await extractWikilinks("/vault/index.md", config, false, true);
     const data = getTestResult(result) as { links: { line: number; column: number }[] };
 
     for (const link of data.links) {
@@ -104,7 +104,7 @@ describe("extractWikilinks", () => {
   });
 
   it("resolves links when requested", async () => {
-    const result = await extractWikilinks("/index.md", config, true, true);
+    const result = await extractWikilinks("/vault/index.md", config, true, true);
     const data = getTestResult(result) as {
       links: { resolved: { targetPath: string | null; targetExists: boolean } }[];
     };
@@ -117,26 +117,26 @@ describe("extractWikilinks", () => {
 
   it("counts unresolved links", async () => {
     await createFile(
-      "/with-broken.md",
+      "/vault/with-broken.md",
       "Link to [[nonexistent-page]] and [[another-missing]]",
       config
     );
 
-    const result = await extractWikilinks("/with-broken.md", config, true, true);
+    const result = await extractWikilinks("/vault/with-broken.md", config, true, true);
     const data = getTestResult(result) as { unresolvedCount: number };
 
     expect(data.unresolvedCount).toBe(2);
   });
 
   it("returns error for non-existent file", async () => {
-    const result = await extractWikilinks("/nonexistent.md", config, false, true);
+    const result = await extractWikilinks("/vault/nonexistent.md", config, false, true);
     expect(result.isError).toBe(true);
   });
 });
 
 describe("getBacklinks", () => {
   it("finds files linking to target", async () => {
-    const result = await getBacklinks("/todo.md", config, false, 1);
+    const result = await getBacklinks("/vault/todo.md", config, false, 1);
     const data = getTestResult(result) as {
       backlinks: { sourcePath: string; matches: { linkText: string }[] }[];
       totalCount: number;
@@ -149,7 +149,7 @@ describe("getBacklinks", () => {
   });
 
   it("includes context when requested", async () => {
-    const result = await getBacklinks("/todo.md", config, true, 1);
+    const result = await getBacklinks("/vault/todo.md", config, true, 1);
     const data = getTestResult(result) as {
       backlinks: { matches: { context?: string }[] }[];
     };
@@ -162,7 +162,7 @@ describe("getBacklinks", () => {
   });
 
   it("includes source title", async () => {
-    const result = await getBacklinks("/todo.md", config, false, 1);
+    const result = await getBacklinks("/vault/todo.md", config, false, 1);
     const data = getTestResult(result) as {
       backlinks: { sourceTitle: string | null }[];
     };
@@ -173,9 +173,9 @@ describe("getBacklinks", () => {
   });
 
   it("returns empty backlinks for file with no links to it", async () => {
-    await createFile("/isolated.md", "No one links here", config);
+    await createFile("/vault/isolated.md", "No one links here", config);
 
-    const result = await getBacklinks("/isolated.md", config, false, 1);
+    const result = await getBacklinks("/vault/isolated.md", config, false, 1);
     const data = getTestResult(result) as { backlinks: unknown[]; totalCount: number };
 
     expect(data.totalCount).toBe(0);

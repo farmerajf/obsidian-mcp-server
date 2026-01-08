@@ -10,10 +10,10 @@ const config = createTestConfig();
 
 describe("patchFile", () => {
   it("replaces lines", async () => {
-    await createFile("/patch-test.md", "Line 1\nLine 2\nLine 3\nLine 4", config);
+    await createFile("/vault/patch-test.md", "Line 1\nLine 2\nLine 3\nLine 4", config);
 
     const result = await patchFile(
-      "/patch-test.md",
+      "/vault/patch-test.md",
       [{ type: "replace_lines", startLine: 2, endLine: 3, content: "New Line 2\nNew Line 3" }],
       config
     );
@@ -22,16 +22,16 @@ describe("patchFile", () => {
     expect(data.success).toBe(true);
     expect(data.patchesApplied).toBe(1);
 
-    const readResult = await readFile("/patch-test.md", config);
+    const readResult = await readFile("/vault/patch-test.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toBe("Line 1\nNew Line 2\nNew Line 3\nLine 4");
   });
 
   it("inserts after line", async () => {
-    await createFile("/insert-test.md", "Line 1\nLine 2", config);
+    await createFile("/vault/insert-test.md", "Line 1\nLine 2", config);
 
     const result = await patchFile(
-      "/insert-test.md",
+      "/vault/insert-test.md",
       [{ type: "insert_after", line: 1, content: "Inserted line" }],
       config
     );
@@ -39,16 +39,16 @@ describe("patchFile", () => {
 
     expect(data.success).toBe(true);
 
-    const readResult = await readFile("/insert-test.md", config);
+    const readResult = await readFile("/vault/insert-test.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toBe("Line 1\nInserted line\nLine 2");
   });
 
   it("deletes lines", async () => {
-    await createFile("/delete-lines.md", "Line 1\nLine 2\nLine 3", config);
+    await createFile("/vault/delete-lines.md", "Line 1\nLine 2\nLine 3", config);
 
     const result = await patchFile(
-      "/delete-lines.md",
+      "/vault/delete-lines.md",
       [{ type: "delete_lines", startLine: 2, endLine: 2 }],
       config
     );
@@ -56,16 +56,16 @@ describe("patchFile", () => {
 
     expect(data.success).toBe(true);
 
-    const readResult = await readFile("/delete-lines.md", config);
+    const readResult = await readFile("/vault/delete-lines.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toBe("Line 1\nLine 3");
   });
 
   it("replaces first occurrence", async () => {
-    await createFile("/replace-first.md", "foo bar foo baz", config);
+    await createFile("/vault/replace-first.md", "foo bar foo baz", config);
 
     const result = await patchFile(
-      "/replace-first.md",
+      "/vault/replace-first.md",
       [{ type: "replace_first", search: "foo", replace: "qux" }],
       config
     );
@@ -73,16 +73,16 @@ describe("patchFile", () => {
 
     expect(data.success).toBe(true);
 
-    const readResult = await readFile("/replace-first.md", config);
+    const readResult = await readFile("/vault/replace-first.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toBe("qux bar foo baz");
   });
 
   it("replaces all occurrences", async () => {
-    await createFile("/replace-all.md", "foo bar foo baz", config);
+    await createFile("/vault/replace-all.md", "foo bar foo baz", config);
 
     const result = await patchFile(
-      "/replace-all.md",
+      "/vault/replace-all.md",
       [{ type: "replace_all", search: "foo", replace: "qux" }],
       config
     );
@@ -91,16 +91,16 @@ describe("patchFile", () => {
     expect(data.success).toBe(true);
     expect(data.linesAffected).toBe(2); // Two replacements
 
-    const readResult = await readFile("/replace-all.md", config);
+    const readResult = await readFile("/vault/replace-all.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toBe("qux bar qux baz");
   });
 
   it("replaces with regex", async () => {
-    await createFile("/regex-test.md", "date: 2024-01-01\ndate: 2024-02-15", config);
+    await createFile("/vault/regex-test.md", "date: 2024-01-01\ndate: 2024-02-15", config);
 
     const result = await patchFile(
-      "/regex-test.md",
+      "/vault/regex-test.md",
       [{ type: "replace_regex", pattern: "\\d{4}-\\d{2}-\\d{2}", replace: "REDACTED", flags: "g" }],
       config
     );
@@ -108,16 +108,16 @@ describe("patchFile", () => {
 
     expect(data.success).toBe(true);
 
-    const readResult = await readFile("/regex-test.md", config);
+    const readResult = await readFile("/vault/regex-test.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toBe("date: REDACTED\ndate: REDACTED");
   });
 
   it("detects ETag conflict", async () => {
-    await createFile("/etag-patch.md", "Content", config);
+    await createFile("/vault/etag-patch.md", "Content", config);
 
     const result = await patchFile(
-      "/etag-patch.md",
+      "/vault/etag-patch.md",
       [{ type: "replace_first", search: "Content", replace: "New" }],
       config,
       "wrong-etag"
@@ -130,7 +130,7 @@ describe("patchFile", () => {
 
   it("returns error for non-existent file", async () => {
     const result = await patchFile(
-      "/nonexistent.md",
+      "/vault/nonexistent.md",
       [{ type: "replace_first", search: "a", replace: "b" }],
       config
     );
@@ -140,9 +140,9 @@ describe("patchFile", () => {
 
 describe("readFilePartial", () => {
   it("reads lines from file", async () => {
-    await createFile("/lines-test.md", "Line 1\nLine 2\nLine 3\nLine 4\nLine 5", config);
+    await createFile("/vault/lines-test.md", "Line 1\nLine 2\nLine 3\nLine 4\nLine 5", config);
 
-    const result = await readFilePartial("/lines-test.md", config, {
+    const result = await readFilePartial("/vault/lines-test.md", config, {
       mode: "lines",
       start: 2,
       end: 4,
@@ -154,9 +154,9 @@ describe("readFilePartial", () => {
   });
 
   it("reads bytes from file", async () => {
-    await createFile("/bytes-test.md", "Hello World!", config);
+    await createFile("/vault/bytes-test.md", "Hello World!", config);
 
-    const result = await readFilePartial("/bytes-test.md", config, {
+    const result = await readFilePartial("/vault/bytes-test.md", config, {
       mode: "bytes",
       start: 0,
       end: 5,
@@ -167,7 +167,7 @@ describe("readFilePartial", () => {
   });
 
   it("returns error for non-existent file", async () => {
-    const result = await readFilePartial("/nonexistent.md", config, {
+    const result = await readFilePartial("/vault/nonexistent.md", config, {
       mode: "lines",
       start: 1,
     });
@@ -177,7 +177,7 @@ describe("readFilePartial", () => {
 
 describe("getFileMetadata", () => {
   it("returns metadata for existing file", async () => {
-    const result = await getFileMetadata("/index.md", config);
+    const result = await getFileMetadata("/vault/index.md", config);
     const data = getTestResult(result) as {
       path: string;
       exists: boolean;
@@ -198,14 +198,14 @@ describe("getFileMetadata", () => {
   });
 
   it("returns exists: false for non-existent file", async () => {
-    const result = await getFileMetadata("/nonexistent.md", config);
+    const result = await getFileMetadata("/vault/nonexistent.md", config);
     const data = getTestResult(result) as { path: string; exists: boolean };
 
     expect(data.exists).toBe(false);
   });
 
   it("detects inline tags", async () => {
-    const result = await getFileMetadata("/todo.md", config);
+    const result = await getFileMetadata("/vault/todo.md", config);
     const data = getTestResult(result) as { tags: string[] };
 
     // Should include both frontmatter and inline tags

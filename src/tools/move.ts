@@ -1,9 +1,9 @@
-import { existsSync, renameSync, readFileSync, writeFileSync, statSync, readdirSync } from "fs";
-import { dirname, basename, join, extname } from "path";
+import { existsSync, renameSync, readFileSync, writeFileSync, statSync, copyFileSync, unlinkSync } from "fs";
+import { dirname, basename, extname } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
-import { resolvePath, toVirtualPath, getAllBasePaths } from "../utils/paths.js";
+import { resolvePath, toVirtualPath, getAllVaults } from "../utils/paths.js";
 
 export async function moveFile(
   source: string,
@@ -50,8 +50,18 @@ export async function moveFile(
     const oldName = basename(sourceResolved.fullPath, extname(sourceResolved.fullPath));
     const newName = basename(destResolved.fullPath, extname(destResolved.fullPath));
 
+    // Check if cross-vault move
+    const isCrossVault = sourceResolved.vaultName !== destResolved.vaultName;
+
     // Perform the move
-    renameSync(sourceResolved.fullPath, destResolved.fullPath);
+    if (isCrossVault) {
+      // Cross-vault: copy then delete
+      copyFileSync(sourceResolved.fullPath, destResolved.fullPath);
+      unlinkSync(sourceResolved.fullPath);
+    } else {
+      // Same vault: simple rename
+      renameSync(sourceResolved.fullPath, destResolved.fullPath);
+    }
 
     let linksUpdated = 0;
     const filesUpdated: string[] = [];
@@ -138,14 +148,14 @@ async function updateWikilinks(
   let linksUpdated = 0;
   const filesUpdated: string[] = [];
 
-  // Clean paths for matching
-  const oldPathClean = oldPath.replace(/^\//, "").replace(/\.md$/, "");
-  const newPathClean = newPath.replace(/^\//, "").replace(/\.md$/, "");
+  // Clean paths for matching (remove vault prefix and .md extension)
+  const oldPathClean = oldPath.replace(/^\/[^/]+\//, "").replace(/\.md$/, "");
+  const newPathClean = newPath.replace(/^\/[^/]+\//, "").replace(/\.md$/, "");
 
   // Find all markdown files
-  for (const basePath of getAllBasePaths(config)) {
+  for (const vault of getAllVaults(config)) {
     const files = await glob("**/*.md", {
-      cwd: basePath,
+      cwd: vault.basePath,
       absolute: true,
       ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
     });
@@ -191,7 +201,7 @@ async function updateWikilinks(
 
       if (modified) {
         writeFileSync(filePath, content, "utf-8");
-        const virtualPath = toVirtualPath(filePath, basePath);
+        const virtualPath = toVirtualPath(filePath, vault.basePath, vault.name);
         filesUpdated.push(virtualPath);
       }
     }

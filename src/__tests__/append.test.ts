@@ -9,42 +9,42 @@ const config = createTestConfig();
 
 describe("appendFile", () => {
   it("appends content to existing file", async () => {
-    await createFile("/test-append.md", "Initial content", config);
+    await createFile("/vault/test-append.md", "Initial content", config);
 
-    const result = await appendFile("/test-append.md", "Appended text", config, {});
+    const result = await appendFile("/vault/test-append.md", "Appended text", config, {});
     const data = getTestResult(result) as { success: boolean; bytesAppended: number };
 
     expect(data.success).toBe(true);
     expect(data.bytesAppended).toBe(13); // "Appended text".length
 
-    const readResult = await readFile("/test-append.md", config);
+    const readResult = await readFile("/vault/test-append.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toContain("Initial content");
     expect(readData.content).toContain("Appended text");
   });
 
   it("ensures newline before appending", async () => {
-    await createFile("/no-newline.md", "No trailing newline", config);
+    await createFile("/vault/no-newline.md", "No trailing newline", config);
 
-    await appendFile("/no-newline.md", "Next line", config, { ensureNewline: true });
+    await appendFile("/vault/no-newline.md", "Next line", config, { ensureNewline: true });
 
-    const readResult = await readFile("/no-newline.md", config);
+    const readResult = await readFile("/vault/no-newline.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toBe("No trailing newline\nNext line");
   });
 
   it("appends with custom separator", async () => {
-    await createFile("/separator.md", "Line 1\n", config);
+    await createFile("/vault/separator.md", "Line 1\n", config);
 
-    await appendFile("/separator.md", "Line 2", config, { separator: "\n---\n" });
+    await appendFile("/vault/separator.md", "Line 2", config, { separator: "\n---\n" });
 
-    const readResult = await readFile("/separator.md", config);
+    const readResult = await readFile("/vault/separator.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toContain("---");
   });
 
   it("creates file if missing with createIfMissing", async () => {
-    const result = await appendFile("/new-from-append.md", "Created content", config, {
+    const result = await appendFile("/vault/new-from-append.md", "Created content", config, {
       createIfMissing: true,
     });
     const data = getTestResult(result) as { success: boolean; created: boolean };
@@ -52,13 +52,13 @@ describe("appendFile", () => {
     expect(data.success).toBe(true);
     expect(data.created).toBe(true);
 
-    const readResult = await readFile("/new-from-append.md", config);
+    const readResult = await readFile("/vault/new-from-append.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toBe("Created content");
   });
 
   it("returns error for non-existent file without createIfMissing", async () => {
-    const result = await appendFile("/nonexistent.md", "Content", config, {
+    const result = await appendFile("/vault/nonexistent.md", "Content", config, {
       createIfMissing: false,
     });
     expect(result.isError).toBe(true);
@@ -68,29 +68,29 @@ describe("appendFile", () => {
 
 describe("prependFile", () => {
   it("prepends content to existing file", async () => {
-    await createFile("/test-prepend.md", "Original content", config);
+    await createFile("/vault/test-prepend.md", "Original content", config);
 
-    const result = await prependFile("/test-prepend.md", "Prepended text\n", config, {
+    const result = await prependFile("/vault/test-prepend.md", "Prepended text\n", config, {
       afterFrontmatter: false,
     });
     const data = getTestResult(result) as { success: boolean };
 
     expect(data.success).toBe(true);
 
-    const readResult = await readFile("/test-prepend.md", config);
+    const readResult = await readFile("/vault/test-prepend.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toBe("Prepended text\nOriginal content");
   });
 
   it("prepends after frontmatter", async () => {
-    const result = await prependFile("/index.md", "New first paragraph", config, {
+    const result = await prependFile("/vault/index.md", "New first paragraph", config, {
       afterFrontmatter: true,
     });
     const data = getTestResult(result) as { success: boolean };
 
     expect(data.success).toBe(true);
 
-    const readResult = await readFile("/index.md", config);
+    const readResult = await readFile("/vault/index.md", config);
     const readData = getTestResult(readResult) as { content: string };
 
     // Should still start with frontmatter
@@ -100,7 +100,7 @@ describe("prependFile", () => {
   });
 
   it("creates file if missing with createIfMissing", async () => {
-    const result = await prependFile("/new-from-prepend.md", "Created content", config, {
+    const result = await prependFile("/vault/new-from-prepend.md", "Created content", config, {
       createIfMissing: true,
     });
     const data = getTestResult(result) as { success: boolean; created: boolean };
@@ -110,7 +110,7 @@ describe("prependFile", () => {
   });
 
   it("returns error for non-existent file without createIfMissing", async () => {
-    const result = await prependFile("/nonexistent.md", "Content", config, {
+    const result = await prependFile("/vault/nonexistent.md", "Content", config, {
       createIfMissing: false,
     });
     expect(result.isError).toBe(true);

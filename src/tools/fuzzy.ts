@@ -1,9 +1,8 @@
-import { statSync } from "fs";
 import { basename, extname } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
-import { resolvePath, toVirtualPath, getAllBasePaths } from "../utils/paths.js";
+import { resolvePath, toVirtualPath, getAllVaults } from "../utils/paths.js";
 
 export async function fuzzySearch(
   query: string,
@@ -21,21 +20,21 @@ export async function fuzzySearch(
       highlights: Array<{ start: number; end: number }>;
     }> = [];
 
-    // Determine search paths
-    let searchPaths: string[];
+    // Determine search vaults
+    let searchVaults: Array<{ name: string; basePath: string }>;
     if (path) {
       const resolved = resolvePath(path, config);
-      searchPaths = [resolved.fullPath];
+      searchVaults = [{ name: resolved.vaultName, basePath: resolved.fullPath }];
     } else {
-      searchPaths = getAllBasePaths(config);
+      searchVaults = getAllVaults(config);
     }
 
     const queryLower = query.toLowerCase();
 
-    for (const basePath of searchPaths) {
+    for (const vault of searchVaults) {
       const pattern = includeDirectories ? "**/*" : "**/*.*";
       const files = await glob(pattern, {
-        cwd: basePath,
+        cwd: vault.basePath,
         absolute: true,
         ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
       });
@@ -48,7 +47,7 @@ export async function fuzzySearch(
         const { score, highlights } = fuzzyMatch(queryLower, nameWithoutExt.toLowerCase());
 
         if (score >= threshold) {
-          const virtualPath = toVirtualPath(filePath, basePath);
+          const virtualPath = toVirtualPath(filePath, vault.basePath, vault.name);
           results.push({
             path: virtualPath,
             filename,

@@ -3,7 +3,7 @@ import { basename } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
-import { resolvePath, toVirtualPath, getAllBasePaths } from "../utils/paths.js";
+import { resolvePath, toVirtualPath, getAllVaults } from "../utils/paths.js";
 
 interface SearchResult {
   path: string;
@@ -20,34 +20,30 @@ export async function searchFiles(
     const results: SearchResult[] = [];
     const regex = new RegExp(query, "gi");
 
-    // Determine which paths to search
-    let searchPaths: string[];
+    // Determine which vaults to search
+    let searchVaults: Array<{ name: string; basePath: string }>;
 
     if (path) {
       const resolved = resolvePath(path, config);
-      searchPaths = [resolved.fullPath];
+      searchVaults = [
+        { name: resolved.vaultName, basePath: resolved.fullPath },
+      ];
     } else {
-      // Search all configured paths
-      searchPaths = getAllBasePaths(config);
+      // Search all configured vaults
+      searchVaults = getAllVaults(config);
     }
 
-    const seen = new Set<string>();
-
-    for (const basePath of searchPaths) {
-      // Find all files in the path
+    for (const vault of searchVaults) {
+      // Find all files in the vault
       const files = await glob("**/*", {
-        cwd: basePath,
+        cwd: vault.basePath,
         nodir: true,
         absolute: true,
       });
 
       for (const filePath of files) {
         const fileName = basename(filePath);
-        const virtualPath = toVirtualPath(filePath, basePath);
-
-        // Skip if we've already seen this virtual path
-        if (seen.has(virtualPath)) continue;
-        seen.add(virtualPath);
+        const virtualPath = toVirtualPath(filePath, vault.basePath, vault.name);
 
         if (type === "filename") {
           // Match against filename

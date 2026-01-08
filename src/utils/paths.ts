@@ -1,64 +1,105 @@
-import { resolve, normalize, relative, join } from "path";
-import { existsSync } from "fs";
+import { resolve, normalize, relative } from "path";
 import type { Config } from "../config.js";
 
 export interface ResolvedPath {
+  vaultName: string;
   basePath: string;
   relativePath: string;
   fullPath: string;
 }
 
 export function resolvePath(path: string, config: Config): ResolvedPath {
-  // Normalize the path - remove leading slash for consistency
-  let relativePath = path;
-  if (relativePath.startsWith("/")) {
-    relativePath = relativePath.slice(1);
+  // Normalize the path - remove leading slash and trailing slashes
+  let normalizedPath = path;
+  if (normalizedPath.startsWith("/")) {
+    normalizedPath = normalizedPath.slice(1);
+  }
+  normalizedPath = normalizedPath.replace(/\/+$/, "");
+
+  // Split into vault name and relative path
+  const slashIndex = normalizedPath.indexOf("/");
+  let vaultName: string;
+  let relativePath: string;
+
+  if (slashIndex === -1) {
+    // Path is just vault name (e.g., "personal" or "personal/")
+    vaultName = normalizedPath;
+    relativePath = "";
+  } else {
+    vaultName = normalizedPath.slice(0, slashIndex);
+    relativePath = normalizedPath.slice(slashIndex + 1);
+  }
+
+  // Validate vault name exists in config
+  const basePath = config.paths[vaultName];
+  if (!basePath) {
+    const availableVaults = Object.keys(config.paths).join(", ");
+    throw new Error(
+      `Invalid vault name: "${vaultName}". Path must start with a vault name. Available vaults: ${availableVaults}`
+    );
   }
 
   // Security check: no path traversal
-  const normalized = normalize(relativePath);
-  if (normalized.startsWith("..") || normalized.includes("/../")) {
-    throw new Error("Path traversal not allowed");
-  }
-
-  // Try to find the path in configured directories
-  for (const basePath of Object.values(config.paths)) {
-    const fullPath = resolve(basePath, relativePath);
-    const normalizedBase = normalize(basePath);
-    const normalizedFull = normalize(fullPath);
-
-    // Ensure we stay within the base path
-    if (
-      normalizedFull.startsWith(normalizedBase + "/") ||
-      normalizedFull === normalizedBase
-    ) {
-      // Check if this path exists or if parent directory exists (for new files)
-      if (existsSync(fullPath) || existsSync(resolve(fullPath, ".."))) {
-        return {
-          basePath,
-          relativePath,
-          fullPath,
-        };
-      }
+  if (relativePath) {
+    const normalized = normalize(relativePath);
+    if (normalized.startsWith("..") || normalized.includes("/../")) {
+      throw new Error("Path traversal not allowed");
     }
   }
 
-  // For new files, use the first configured path
-  const firstBasePath = Object.values(config.paths)[0];
-  const fullPath = resolve(firstBasePath, relativePath);
+  const fullPath = relativePath ? resolve(basePath, relativePath) : basePath;
+
+  // Ensure we stay within the vault
+  const normalizedBase = normalize(basePath);
+  const normalizedFull = normalize(fullPath);
+  if (
+    !normalizedFull.startsWith(normalizedBase + "/") &&
+    normalizedFull !== normalizedBase
+  ) {
+    throw new Error("Path traversal not allowed");
+  }
 
   return {
-    basePath: firstBasePath,
+    vaultName,
+    basePath,
     relativePath,
     fullPath,
   };
 }
 
-export function toVirtualPath(fullPath: string, basePath: string): string {
+export function toVirtualPath(
+  fullPath: string,
+  basePath: string,
+  vaultName: string
+): string {
   const rel = relative(basePath, fullPath);
-  return "/" + rel;
+  return "/" + vaultName + (rel ? "/" + rel : "");
 }
 
 export function getAllBasePaths(config: Config): string[] {
   return Object.values(config.paths);
+}
+
+export function getAllVaults(
+  config: Config
+): Array<{ name: string; basePath: string }> {
+  return Object.entries(config.paths).map(([name, basePath]) => ({
+    name,
+    basePath,
+  }));
+}
+
+export function isRootPath(path: string): boolean {
+  const normalized = path.replace(/^\/+/, "").replace(/\/+$/, "");
+  return normalized === "";
+}
+
+export function getVaultEntries(
+  config: Config
+): Array<{ name: string; path: string; type: "directory" }> {
+  return Object.keys(config.paths).map((name) => ({
+    name,
+    path: "/" + name,
+    type: "directory" as const,
+  }));
 }

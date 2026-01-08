@@ -26,7 +26,7 @@ describe("searchByTag", () => {
 
   it("searches by multiple tags with all match", async () => {
     await createFile(
-      "/multi-tag.md",
+      "/vault/multi-tag.md",
       `---
 title: Multi Tag
 tags: [one, two]
@@ -151,7 +151,7 @@ describe("listAllTags", () => {
   });
 
   it("limits to specific directory", async () => {
-    const result = await listAllTags(config, "/notes/daily");
+    const result = await listAllTags(config, "/vault/notes/daily");
     const data = getTestResult(result) as { tags: { tag: string }[] };
 
     // Should find tags from daily notes

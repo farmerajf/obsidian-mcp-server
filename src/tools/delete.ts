@@ -2,7 +2,7 @@ import { existsSync, unlinkSync, statSync, mkdirSync, renameSync, readdirSync, r
 import { dirname, basename, join } from "path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
-import { resolvePath, getAllBasePaths } from "../utils/paths.js";
+import { resolvePath, getAllVaults } from "../utils/paths.js";
 
 const TRASH_FOLDER = ".trash";
 
@@ -98,7 +98,7 @@ export async function deleteFile(
                 success: true,
                 path,
                 permanent: false,
-                trashedTo: `/${TRASH_FOLDER}/${trashedName}`,
+                trashedTo: `/${resolved.vaultName}/${TRASH_FOLDER}/${trashedName}`,
                 message: "File moved to trash",
               },
               null,
@@ -124,12 +124,13 @@ export async function listTrash(config: Config): Promise<CallToolResult> {
       originalName: string;
       trashedAt: string;
       size: number;
+      vault: string;
     }> = [];
 
     let totalSize = 0;
 
-    for (const basePath of getAllBasePaths(config)) {
-      const trashPath = join(basePath, TRASH_FOLDER);
+    for (const vault of getAllVaults(config)) {
+      const trashPath = join(vault.basePath, TRASH_FOLDER);
       if (!existsSync(trashPath)) continue;
 
       const entries = readdirSync(trashPath, { withFileTypes: true });
@@ -146,10 +147,11 @@ export async function listTrash(config: Config): Promise<CallToolResult> {
           const originalName = entry.name.replace(/\.\d+$/, "");
 
           items.push({
-            path: `/${TRASH_FOLDER}/${entry.name}`,
+            path: `/${vault.name}/${TRASH_FOLDER}/${entry.name}`,
             originalName,
             trashedAt: new Date(timestamp).toISOString(),
             size: stats.size,
+            vault: vault.name,
           });
 
           totalSize += stats.size;
@@ -192,22 +194,13 @@ export async function restoreFromTrash(
   overwrite: boolean = false
 ): Promise<CallToolResult> {
   try {
-    // Find the trashed file
-    let sourceFullPath: string | null = null;
-    let basePath: string | null = null;
-
+    // Parse trash path to get vault and filename
+    // Format: /{vaultName}/.trash/{filename}
+    const resolved = resolvePath(trashPath, config);
     const trashedName = basename(trashPath);
 
-    for (const bp of getAllBasePaths(config)) {
-      const fullTrashPath = join(bp, TRASH_FOLDER, trashedName);
-      if (existsSync(fullTrashPath)) {
-        sourceFullPath = fullTrashPath;
-        basePath = bp;
-        break;
-      }
-    }
-
-    if (!sourceFullPath || !basePath) {
+    const sourceFullPath = join(resolved.basePath, TRASH_FOLDER, trashedName);
+    if (!existsSync(sourceFullPath)) {
       return {
         content: [{ type: "text", text: `Error: File not found in trash: ${trashPath}` }],
         isError: true,
@@ -216,13 +209,16 @@ export async function restoreFromTrash(
 
     // Determine restore path
     let destPath: string;
+    let destVaultName: string;
     if (restoreTo) {
-      const resolved = resolvePath(restoreTo, config);
-      destPath = resolved.fullPath;
+      const destResolved = resolvePath(restoreTo, config);
+      destPath = destResolved.fullPath;
+      destVaultName = destResolved.vaultName;
     } else {
-      // Restore to root with original name
+      // Restore to vault root with original name
       const originalName = trashedName.replace(/\.\d+$/, "");
-      destPath = join(basePath, originalName);
+      destPath = join(resolved.basePath, originalName);
+      destVaultName = resolved.vaultName;
     }
 
     // Check if destination exists
@@ -255,7 +251,7 @@ export async function restoreFromTrash(
             {
               success: true,
               restoredFrom: trashPath,
-              restoredTo: restoreTo || "/" + basename(destPath),
+              restoredTo: restoreTo || `/${destVaultName}/${basename(destPath)}`,
               message: "File restored from trash",
             },
             null,
@@ -290,8 +286,8 @@ export async function emptyTrash(
     let deletedSize = 0;
     const cutoffTime = olderThanDays ? Date.now() - olderThanDays * 24 * 60 * 60 * 1000 : 0;
 
-    for (const basePath of getAllBasePaths(config)) {
-      const trashPath = join(basePath, TRASH_FOLDER);
+    for (const vault of getAllVaults(config)) {
+      const trashPath = join(vault.basePath, TRASH_FOLDER);
       if (!existsSync(trashPath)) continue;
 
       const entries = readdirSync(trashPath, { withFileTypes: true });

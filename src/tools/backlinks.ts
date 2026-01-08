@@ -1,9 +1,9 @@
-import { existsSync, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import { basename, extname } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
-import { resolvePath, toVirtualPath, getAllBasePaths } from "../utils/paths.js";
+import { resolvePath, toVirtualPath, getAllVaults } from "../utils/paths.js";
 
 const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/;
 
@@ -16,7 +16,8 @@ export async function getBacklinks(
   try {
     const resolved = resolvePath(path, config);
     const targetName = basename(resolved.fullPath, extname(resolved.fullPath));
-    const targetPath = path.replace(/^\//, "").replace(/\.md$/, "");
+    // Remove vault prefix for matching within files
+    const targetPath = resolved.relativePath.replace(/\.md$/, "");
 
     const backlinks: Array<{
       sourcePath: string;
@@ -31,9 +32,9 @@ export async function getBacklinks(
     let totalCount = 0;
 
     // Search all markdown files for links to this file
-    for (const basePath of getAllBasePaths(config)) {
+    for (const vault of getAllVaults(config)) {
       const files = await glob("**/*.md", {
-        cwd: basePath,
+        cwd: vault.basePath,
         absolute: true,
         ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
       });
@@ -101,7 +102,7 @@ export async function getBacklinks(
         }
 
         if (matches.length > 0) {
-          const virtualPath = toVirtualPath(filePath, basePath);
+          const virtualPath = toVirtualPath(filePath, vault.basePath, vault.name);
           backlinks.push({
             sourcePath: virtualPath,
             sourceTitle,

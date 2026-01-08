@@ -14,7 +14,7 @@ describe("fuzzySearch", () => {
 
     expect(data.results.length).toBeGreaterThan(0);
     // Exact match should have high score
-    const indexMatch = data.results.find((r) => r.path === "/index.md");
+    const indexMatch = data.results.find((r) => r.path === "/vault/index.md");
     expect(indexMatch).toBeDefined();
     expect(indexMatch!.score).toBeGreaterThan(0.8);
   });
@@ -62,7 +62,7 @@ describe("fuzzySearch", () => {
   });
 
   it("searches within directory", async () => {
-    const result = await fuzzySearch("project", config, "/notes/projects");
+    const result = await fuzzySearch("project", config, "/vault/notes/projects");
     const data = getTestResult(result) as { results: { path: string }[] };
 
     // All results should contain the searched name
@@ -82,7 +82,7 @@ describe("fuzzySearch", () => {
 describe("searchByDate", () => {
   it("searches by modified date - relative today", async () => {
     // Create a file (will have "today" as modified date in tests)
-    await createFile("/today-file.md", "Content", config);
+    await createFile("/vault/today-file.md", "Content", config);
 
     const result = await searchByDate("modified", { relative: "today" }, config);
     const data = getTestResult(result) as { results: { path: string }[] };

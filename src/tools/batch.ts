@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, appendFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, appendFileSync, statSync } from "fs";
 import { dirname } from "path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
@@ -55,7 +55,7 @@ export async function batchRead(
       };
 
       if (includeMetadata) {
-        const stats = require("fs").statSync(resolved.fullPath);
+        const stats = statSync(resolved.fullPath);
         result.metadata = {
           size: stats.size,
           modified: stats.mtime.toISOString(),
