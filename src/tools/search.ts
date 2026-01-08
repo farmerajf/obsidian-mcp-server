@@ -21,22 +21,22 @@ export async function searchFiles(
     const regex = new RegExp(query, "gi");
 
     // Determine which vaults to search
-    let searchVaults: Array<{ name: string; basePath: string }>;
+    let searchVaults: Array<{ name: string; basePath: string; searchPath: string }>;
 
     if (path) {
       const resolved = resolvePath(path, config);
       searchVaults = [
-        { name: resolved.vaultName, basePath: resolved.fullPath },
+        { name: resolved.vaultName, basePath: resolved.basePath, searchPath: resolved.fullPath },
       ];
     } else {
       // Search all configured vaults
-      searchVaults = getAllVaults(config);
+      searchVaults = getAllVaults(config).map(v => ({ ...v, searchPath: v.basePath }));
     }
 
     for (const vault of searchVaults) {
       // Find all files in the vault
       const files = await glob("**/*", {
-        cwd: vault.basePath,
+        cwd: vault.searchPath,
         nodir: true,
         absolute: true,
       });

@@ -29,18 +29,18 @@ export async function searchByTag(
     // Normalize tags (remove # if present)
     const normalizedTags = tags.map((t) => t.replace(/^#/, "").toLowerCase());
 
-    // Determine search vaults
-    let searchVaults: Array<{ name: string; basePath: string }>;
+    // Determine search vaults and directories
+    let searchVaults: Array<{ name: string; basePath: string; searchPath: string }>;
     if (path) {
       const resolved = resolvePath(path, config);
-      searchVaults = [{ name: resolved.vaultName, basePath: resolved.fullPath }];
+      searchVaults = [{ name: resolved.vaultName, basePath: resolved.basePath, searchPath: resolved.fullPath }];
     } else {
-      searchVaults = getAllVaults(config);
+      searchVaults = getAllVaults(config).map(v => ({ ...v, searchPath: v.basePath }));
     }
 
     for (const vault of searchVaults) {
       const files = await glob("**/*.md", {
-        cwd: vault.basePath,
+        cwd: vault.searchPath,
         absolute: true,
         ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
       });
@@ -181,18 +181,18 @@ export async function listAllTags(
   try {
     const tagCounts = new Map<string, number>();
 
-    // Determine search vaults
-    let searchVaults: Array<{ name: string; basePath: string }>;
+    // Determine search vaults and directories
+    let searchVaults: Array<{ name: string; basePath: string; searchPath: string }>;
     if (path) {
       const resolved = resolvePath(path, config);
-      searchVaults = [{ name: resolved.vaultName, basePath: resolved.fullPath }];
+      searchVaults = [{ name: resolved.vaultName, basePath: resolved.basePath, searchPath: resolved.fullPath }];
     } else {
-      searchVaults = getAllVaults(config);
+      searchVaults = getAllVaults(config).map(v => ({ ...v, searchPath: v.basePath }));
     }
 
     for (const vault of searchVaults) {
       const files = await glob("**/*.md", {
-        cwd: vault.basePath,
+        cwd: vault.searchPath,
         absolute: true,
         ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
       });

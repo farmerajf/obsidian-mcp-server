@@ -20,13 +20,13 @@ export async function fuzzySearch(
       highlights: Array<{ start: number; end: number }>;
     }> = [];
 
-    // Determine search vaults
-    let searchVaults: Array<{ name: string; basePath: string }>;
+    // Determine search vaults and directories
+    let searchVaults: Array<{ name: string; basePath: string; searchPath: string }>;
     if (path) {
       const resolved = resolvePath(path, config);
-      searchVaults = [{ name: resolved.vaultName, basePath: resolved.fullPath }];
+      searchVaults = [{ name: resolved.vaultName, basePath: resolved.basePath, searchPath: resolved.fullPath }];
     } else {
-      searchVaults = getAllVaults(config);
+      searchVaults = getAllVaults(config).map(v => ({ ...v, searchPath: v.basePath }));
     }
 
     const queryLower = query.toLowerCase();
@@ -34,7 +34,7 @@ export async function fuzzySearch(
     for (const vault of searchVaults) {
       const pattern = includeDirectories ? "**/*" : "**/*.*";
       const files = await glob(pattern, {
-        cwd: vault.basePath,
+        cwd: vault.searchPath,
         absolute: true,
         ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
       });
