@@ -228,6 +228,24 @@ describe("searchFiles", () => {
     expect(paths.some((p) => p.includes("2024-01-01") || p.includes("2024-01-02"))).toBe(true);
   });
 
+  it("returns full path when searching subdirectory", async () => {
+    // Create a file in a subdirectory with unique content
+    await createFile(
+      "/vault/notes/projects/search-path-test.md",
+      "unique-search-content-xyz",
+      config
+    );
+
+    const result = await searchFiles("unique-search-content-xyz", "/vault/notes/projects", "content", config);
+    const data = getTestResult(result) as { results: { path: string }[] };
+
+    expect(data.results.length).toBeGreaterThan(0);
+    // Critical: path should include the full subdirectory, not just /vault/search-path-test.md
+    const found = data.results.find((r) => r.path.includes("search-path-test"));
+    expect(found).toBeDefined();
+    expect(found!.path).toBe("/vault/notes/projects/search-path-test.md");
+  });
+
   it("returns empty results for no matches", async () => {
     const result = await searchFiles("xyznonexistentxyz", undefined, "content", config);
     const data = getTestResult(result) as { results: unknown[] };

@@ -69,6 +69,20 @@ describe("fuzzySearch", () => {
     expect(data.results.length).toBeGreaterThan(0);
   });
 
+  it("returns full path when searching subdirectory", async () => {
+    // Create a file in a subdirectory
+    await createFile("/vault/notes/daily/search-test-file.md", "Test content", config);
+
+    const result = await fuzzySearch("search-test", config, "/vault/notes/daily");
+    const data = getTestResult(result) as { results: { path: string }[] };
+
+    expect(data.results.length).toBeGreaterThan(0);
+    // Critical: path should include the full subdirectory, not just /vault/search-test-file.md
+    const found = data.results.find((r) => r.path.includes("search-test-file"));
+    expect(found).toBeDefined();
+    expect(found!.path).toBe("/vault/notes/daily/search-test-file.md");
+  });
+
   it("sorts by score descending", async () => {
     const result = await fuzzySearch("daily", config);
     const data = getTestResult(result) as { results: { score: number }[] };
@@ -182,5 +196,27 @@ describe("searchByDate", () => {
     for (const r of data.results) {
       expect(r.title).not.toBeNull();
     }
+  });
+
+  it("returns full path when searching subdirectory", async () => {
+    // Create a file in a subdirectory with a date in frontmatter
+    await createFile(
+      "/vault/notes/daily/date-search-test.md",
+      `---
+date: 2024-06-15
+---
+
+Test content`,
+      config
+    );
+
+    const result = await searchByDate("date", { equals: "2024-06-15" }, config, "/vault/notes/daily");
+    const data = getTestResult(result) as { results: { path: string }[] };
+
+    expect(data.results.length).toBeGreaterThan(0);
+    // Critical: path should include the full subdirectory
+    const found = data.results.find((r) => r.path.includes("date-search-test"));
+    expect(found).toBeDefined();
+    expect(found!.path).toBe("/vault/notes/daily/date-search-test.md");
   });
 });

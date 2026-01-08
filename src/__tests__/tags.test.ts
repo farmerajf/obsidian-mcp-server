@@ -103,6 +103,28 @@ Content`,
     expect(data.totalMatches).toBe(0);
     expect(data.results.length).toBe(0);
   });
+
+  it("returns full path when searching subdirectory", async () => {
+    // Create a file in a subdirectory with a specific tag
+    await createFile(
+      "/vault/notes/projects/tag-path-test.md",
+      `---
+tags: [unique-test-tag]
+---
+
+Content`,
+      config
+    );
+
+    const result = await searchByTag(["unique-test-tag"], config, "any", "/vault/notes/projects");
+    const data = getTestResult(result) as { results: { path: string }[] };
+
+    expect(data.results.length).toBeGreaterThan(0);
+    // Critical: path should include the full subdirectory
+    const found = data.results.find((r) => r.path.includes("tag-path-test"));
+    expect(found).toBeDefined();
+    expect(found!.path).toBe("/vault/notes/projects/tag-path-test.md");
+  });
 });
 
 describe("listAllTags", () => {
