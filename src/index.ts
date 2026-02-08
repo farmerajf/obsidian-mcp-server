@@ -54,6 +54,12 @@ function startSseServer(config: Config): void {
   const app = express();
   app.use(express.json());
 
+  // basePath is used for client callback URLs when behind a reverse proxy
+  // that strips the path prefix (e.g., Tailscale Funnel with --set-path)
+  // The proxy strips the prefix on incoming requests, but clients need
+  // the full path to POST messages back correctly.
+  const basePath = config.basePath || "";
+
   // API key validation middleware - key is in the URL path
   function validateApiKey(
     req: Request,
@@ -69,12 +75,15 @@ function startSseServer(config: Config): void {
   }
 
   // SSE endpoint - establishes the SSE connection
-  // URL format: /:apiKey/sse
   app.get("/:apiKey/sse", validateApiKey, async (req: Request, res: Response) => {
     console.log("New SSE connection");
 
-    // Create SSE transport - messages endpoint is relative to the apiKey path
-    const transport = new SSEServerTransport(`/${req.params.apiKey}/messages`, res);
+    // Create SSE transport - messages endpoint includes basePath for reverse proxy support
+    // The client needs the full external path to POST messages back
+    const messagesPath = basePath
+      ? `${basePath}/${req.params.apiKey}/messages`
+      : `/${req.params.apiKey}/messages`;
+    const transport = new SSEServerTransport(messagesPath, res);
     transports.set(transport.sessionId, transport);
 
     // Clean up on close
@@ -91,7 +100,6 @@ function startSseServer(config: Config): void {
   });
 
   // Messages endpoint - receives JSON-RPC messages from the client
-  // URL format: /:apiKey/messages
   app.post(
     "/:apiKey/messages",
     validateApiKey,
@@ -112,7 +120,7 @@ function startSseServer(config: Config): void {
     }
   );
 
-  // Health check endpoint
+  // Health check endpoint - always at root
   app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok" });
   });
@@ -121,6 +129,9 @@ function startSseServer(config: Config): void {
   const server = app.listen(config.port, () => {
     console.log(`Remote Obsidian MCP Server running on port ${config.port}`);
     console.log(`SSE endpoint: http://localhost:${config.port}/{apiKey}/sse`);
+    if (basePath) {
+      console.log(`External base path for clients: ${basePath}`);
+    }
     console.log(`Configured paths:`);
     for (const [name, path] of Object.entries(config.paths)) {
       console.log(`  ${name}: ${path}`);

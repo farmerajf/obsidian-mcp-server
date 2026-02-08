@@ -193,4 +193,67 @@ describe("loadConfig", () => {
 
     expect(() => loadConfig("/config.json")).toThrow("at least one path configured");
   });
+
+  it("normalizes basePath - adds leading slash", () => {
+    vol.fromJSON({
+      "/config.json": JSON.stringify({
+        port: 3000,
+        apiKey: "test-key",
+        basePath: "obsidian-mcp",
+        paths: { vault: "/" },
+      }),
+      "/": null,
+    });
+
+    const config = loadConfig("/config.json");
+
+    expect(config.basePath).toBe("/obsidian-mcp");
+  });
+
+  it("normalizes basePath - removes trailing slash", () => {
+    vol.fromJSON({
+      "/config.json": JSON.stringify({
+        port: 3000,
+        apiKey: "test-key",
+        basePath: "/obsidian-mcp/",
+        paths: { vault: "/" },
+      }),
+      "/": null,
+    });
+
+    const config = loadConfig("/config.json");
+
+    expect(config.basePath).toBe("/obsidian-mcp");
+  });
+
+  it("normalizes basePath - handles both issues", () => {
+    vol.fromJSON({
+      "/config.json": JSON.stringify({
+        port: 3000,
+        apiKey: "test-key",
+        basePath: "api/mcp/",
+        paths: { vault: "/" },
+      }),
+      "/": null,
+    });
+
+    const config = loadConfig("/config.json");
+
+    expect(config.basePath).toBe("/api/mcp");
+  });
+
+  it("allows config without basePath", () => {
+    vol.fromJSON({
+      "/config.json": JSON.stringify({
+        port: 3000,
+        apiKey: "test-key",
+        paths: { vault: "/" },
+      }),
+      "/": null,
+    });
+
+    const config = loadConfig("/config.json");
+
+    expect(config.basePath).toBeUndefined();
+  });
 });

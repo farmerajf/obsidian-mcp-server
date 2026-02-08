@@ -7,6 +7,7 @@ export interface Config {
   transport: TransportMode;
   port: number;
   apiKey: string;
+  basePath?: string;
   paths: Record<string, string>;
 }
 
@@ -44,6 +45,18 @@ export function loadConfig(configPath?: string): Config {
 
     if (typeof config.apiKey !== "string" || config.apiKey.length === 0) {
       throw new Error("Config must have a non-empty apiKey for SSE mode");
+    }
+
+    // Normalize basePath: ensure leading slash, no trailing slash
+    if (config.basePath) {
+      let bp = config.basePath;
+      if (!bp.startsWith("/")) {
+        bp = "/" + bp;
+      }
+      if (bp.endsWith("/")) {
+        bp = bp.slice(0, -1);
+      }
+      config.basePath = bp;
     }
   } else {
     // Set defaults for stdio mode
