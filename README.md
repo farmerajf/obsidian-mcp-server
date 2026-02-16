@@ -1,11 +1,24 @@
 # Obsidian Remote MCP Server
 
-A Model Context Protocol (MCP) server that provides remote access to an Obsidian vault with full CRUD operations, Obsidian-aware intelligence, and performance optimizations.
+A Model Context Protocol (MCP) server that provides remote access to Obsidian vaults with full CRUD operations, Obsidian-aware intelligence, and performance optimizations.
+
+## Why not a generic filesystem MCP server?
+
+A generic filesystem server treats your vault as flat files. This server understands Obsidian:
+
+- **Wikilinks are first-class** - resolve `[[links]]`, extract all links from a file, find backlinks, and automatically update links when you move or rename files. A filesystem server has no concept of `[[wikilinks]]`.
+- **Frontmatter as structured data** - read and update YAML frontmatter as JSON with merge semantics, not raw text manipulation.
+- **Tag intelligence** - search by tags across frontmatter and inline `#tags`, list all tags with counts, understand nested tag hierarchies like `#project/frontend`.
+- **Obsidian URL deep-links** - convert between `obsidian://open?vault=...&file=...` URLs and file paths. The AI automatically cites sources as clickable links that open directly in Obsidian.
+- **Obsidian-safe operations** - soft delete to `.trash/` (matching Obsidian's behavior), `.obsidian/` directory protection, ETag conflict detection to prevent overwriting concurrent edits from the Obsidian app.
+- **Multi-vault** - access multiple vaults through a single server with a virtual path system, rather than configuring separate filesystem mounts.
+- **Remote-first** - SSE transport with API key auth, designed for accessing your vault from Claude Web/iOS over the network. Supports reverse proxy setups like Tailscale Funnel.
 
 ## Features
 
 - **Remote access**: Connect Claude Web/iOS to your Obsidian vault via SSE
-- **Obsidian-aware**: Frontmatter, wikilinks, backlinks, tags
+- **Multi-vault**: Configure multiple vaults with a virtual root path system
+- **Obsidian-aware**: Frontmatter, wikilinks, backlinks, tags, Obsidian URL deep-links
 - **CRUD+**: Standard operations plus append, patch, partial read
 - **Performance**: Batch operations, surgical edits, metadata-only reads
 - **Safe**: Soft delete to .trash, ETag conflict detection, .obsidian protection
@@ -29,12 +42,18 @@ Edit `config.json`:
 ```json
 {
   "port": 3000,
-  "apiKey": "your-secure-api-key",
+  "apiKey": "generate-a-random-secret-here",
   "paths": {
-    "vault": "/path/to/obsidian/vault"
+    "personal": "/path/to/obsidian/Personal",
+    "work": "/path/to/obsidian/Work"
   }
 }
 ```
+
+- **`apiKey`**: A secret string you generate yourself. Use something long and random (e.g., `openssl rand -hex 32`). This key authenticates requests to your server.
+- **`port`**: The port the SSE server listens on.
+- **`paths`**: A map of vault names to their absolute filesystem paths. The keys (e.g., `personal`, `work`) become the vault names used in paths and Obsidian URLs. You can configure one or many vaults.
+- **`basePath`** (optional): Set this when behind a reverse proxy that strips a path prefix (e.g., Tailscale Funnel with `--set-path`).
 
 ### 3. Build and run
 
@@ -43,6 +62,13 @@ npm run build
 npm start
 ```
 
+### Transport modes
+
+The server supports two transport modes:
+
+- **SSE** (default): For remote access from Claude Web/iOS. Requires `port` and `apiKey`.
+- **stdio**: For local use with Claude Desktop. Set via `--stdio` flag, `MCP_TRANSPORT=stdio` env var, or config.
+
 ## Connecting from Claude Web/iOS
 
 Add a custom connector with URL:
@@ -50,7 +76,7 @@ Add a custom connector with URL:
 https://your-server.com/YOUR_API_KEY/sse
 ```
 
-## Available Tools (30+)
+## Available Tools
 
 ### Core File Operations
 
@@ -133,19 +159,28 @@ https://your-server.com/YOUR_API_KEY/sse
 | `fuzzy_search` | Fuzzy filename search with typo tolerance |
 | `search_by_date` | Find files by date (created/modified/frontmatter) |
 
+### Obsidian URLs
+
+| Tool | Description |
+|------|-------------|
+| `obsidian_url_to_path` | Convert an `obsidian://` URL to a vault file path |
+| `path_to_obsidian_url` | Convert a vault file path to an `obsidian://` deep-link URL |
+
+The server includes instructions that tell the AI to cite sources as clickable `obsidian://` URLs, so references in responses open directly in Obsidian.
+
 ## Path Format
 
-All paths are relative to the configured vault:
-- `/` - vault root
-- `/notes/todo.md` - specific file
-- `/projects` - directory
+All paths use the vault name as a prefix:
+- `/` - lists all configured vaults
+- `/personal/notes/todo.md` - file in the "personal" vault
+- `/work/projects` - directory in the "work" vault
 
 ## Conflict Detection
 
 Files include ETags for optimistic concurrency:
-1. Read file → get content + ETag
+1. Read file -> get content + ETag
 2. Modify content
-3. Update with `expectedEtag` → fails if file changed
+3. Update with `expectedEtag` -> fails if file changed
 
 ## Soft Delete
 
@@ -166,7 +201,7 @@ The server never modifies or deletes `.obsidian/` directory.
 
 ## Deployment
 
-For production, use HTTPS via reverse proxy (nginx, Cloudflare Tunnel, etc.)
+For production, use HTTPS via reverse proxy (nginx, Cloudflare Tunnel, Tailscale Funnel, etc.)
 
 ## License
 
