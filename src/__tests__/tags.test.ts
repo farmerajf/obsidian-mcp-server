@@ -180,4 +180,123 @@ describe("listAllTags", () => {
     const tagNames = data.tags.map((t) => t.tag.toLowerCase());
     expect(tagNames).toContain("daily");
   });
+
+  it("includes nestedUnder for nested tags", async () => {
+    await createFile(
+      "/vault/nested-tag-file.md",
+      "Some text with #project/alpha and #project/beta tags",
+      config
+    );
+
+    const result = await listAllTags(config);
+    const data = getTestResult(result) as { tags: { tag: string; nestedUnder?: string }[] };
+
+    const nested = data.tags.find((t) => t.tag === "project/alpha");
+    expect(nested).toBeDefined();
+    expect(nested!.nestedUnder).toBe("project");
+  });
+});
+
+describe("searchByTag (additional)", () => {
+  it("matches nested tags when searching parent", async () => {
+    await createFile(
+      "/vault/nested-search.md",
+      `---
+tags: [project/frontend]
+---
+
+Content`,
+      config
+    );
+
+    const result = await searchByTag(["project"], config, "any");
+    const data = getTestResult(result) as { results: { path: string; matchedTags: string[] }[] };
+
+    const found = data.results.find((r) => r.path.includes("nested-search"));
+    expect(found).toBeDefined();
+    expect(found!.matchedTags).toContain("project/frontend");
+  });
+
+  it("match all mode requires all tags present", async () => {
+    await createFile(
+      "/vault/all-match.md",
+      `---
+tags: [alpha, beta]
+---
+
+Content`,
+      config
+    );
+
+    // Should not match - file has alpha,beta but not gamma
+    const result = await searchByTag(["alpha", "gamma"], config, "all");
+    const data = getTestResult(result) as { results: { path: string }[] };
+    const found = data.results.find((r) => r.path.includes("all-match"));
+    expect(found).toBeUndefined();
+  });
+
+  it("extracts inline tags with line numbers", async () => {
+    await createFile(
+      "/vault/inline-lines.md",
+      `---
+title: Inline Test
+---
+
+Line 1
+Line 2 has #special-tag here
+Line 3`,
+      config
+    );
+
+    const result = await searchByTag(["special-tag"], config, "any", undefined, "body");
+    const data = getTestResult(result) as {
+      results: { tagLocations: { tag: string; location: string; line?: number }[] }[];
+    };
+
+    expect(data.results.length).toBeGreaterThan(0);
+    const loc = data.results[0].tagLocations.find((l) => l.tag === "special-tag");
+    expect(loc).toBeDefined();
+    expect(loc!.location).toBe("body");
+    expect(loc!.line).toBeGreaterThan(0);
+  });
+
+  it("parses multiline frontmatter tags format", async () => {
+    await createFile(
+      "/vault/multiline-tags.md",
+      `---
+title: Multi Tags
+tags:
+  - red
+  - green
+  - blue
+---
+
+Content`,
+      config
+    );
+
+    const result = await searchByTag(["red"], config, "any", undefined, "frontmatter");
+    const data = getTestResult(result) as { results: { matchedTags: string[] }[] };
+
+    expect(data.results.length).toBeGreaterThan(0);
+    expect(data.results[0].matchedTags).toContain("red");
+  });
+
+  it("falls back to filename when no title in frontmatter", async () => {
+    await createFile(
+      "/vault/no-title-tags.md",
+      `---
+tags: [findme-notitle]
+---
+
+No title here`,
+      config
+    );
+
+    const result = await searchByTag(["findme-notitle"], config, "any");
+    const data = getTestResult(result) as { results: { title: string }[] };
+
+    const found = data.results.find((r) => r.title === "no-title-tags");
+    expect(found).toBeDefined();
+  });
 });

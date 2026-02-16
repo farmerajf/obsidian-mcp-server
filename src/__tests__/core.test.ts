@@ -7,6 +7,7 @@ import { createFile } from "../tools/create.js";
 import { updateFile } from "../tools/update.js";
 import { deleteFile } from "../tools/delete.js";
 import { searchFiles } from "../tools/search.js";
+import { readFilePartial, getFileMetadata } from "../tools/metadata.js";
 
 const config = createTestConfig();
 
@@ -251,5 +252,128 @@ describe("searchFiles", () => {
     const data = getTestResult(result) as { results: unknown[] };
 
     expect(data.results.length).toBe(0);
+  });
+});
+
+describe("readFilePartial", () => {
+  it("reads lines from file", async () => {
+    const result = await readFilePartial("/vault/index.md", config, {
+      mode: "lines",
+      start: 1,
+      end: 3,
+      includeMeta: true,
+    });
+    const data = getTestResult(result) as {
+      content: string;
+      mode: string;
+      totalLines: number;
+      totalBytes: number;
+    };
+
+    expect(data.mode).toBe("lines");
+    expect(data.content).toBeDefined();
+    expect(data.totalLines).toBeGreaterThan(0);
+    expect(data.totalBytes).toBeGreaterThan(0);
+  });
+
+  it("reads bytes from file", async () => {
+    const result = await readFilePartial("/vault/index.md", config, {
+      mode: "bytes",
+      start: 0,
+      end: 10,
+      includeMeta: true,
+    });
+    const data = getTestResult(result) as {
+      content: string;
+      mode: string;
+      totalBytes: number;
+    };
+
+    expect(data.mode).toBe("bytes");
+    expect(data.content.length).toBeLessThanOrEqual(10);
+    expect(data.totalBytes).toBeGreaterThan(0);
+  });
+
+  it("reads without metadata", async () => {
+    const result = await readFilePartial("/vault/index.md", config, {
+      mode: "lines",
+      start: 1,
+      end: 2,
+      includeMeta: false,
+    });
+    const data = getTestResult(result) as Record<string, unknown>;
+
+    expect(data.content).toBeDefined();
+    expect(data.totalLines).toBeUndefined();
+  });
+
+  it("returns error for non-existent file", async () => {
+    const result = await readFilePartial("/vault/nope.md", config, {
+      mode: "lines",
+      start: 1,
+    });
+    expect(result.isError).toBe(true);
+  });
+});
+
+describe("getFileMetadata", () => {
+  it("returns metadata for file with frontmatter", async () => {
+    const result = await getFileMetadata("/vault/index.md", config);
+    const data = getTestResult(result) as {
+      exists: boolean;
+      type: string;
+      hasFrontmatter: boolean;
+      linkCount: number;
+      tags: string[];
+    };
+
+    expect(data.exists).toBe(true);
+    expect(data.type).toBe("file");
+    expect(data.hasFrontmatter).toBe(true);
+    expect(data.linkCount).toBeGreaterThan(0);
+    expect(data.tags).toBeDefined();
+  });
+
+  it("returns exists: false for missing file", async () => {
+    const result = await getFileMetadata("/vault/missing.md", config);
+    const data = getTestResult(result) as { exists: boolean };
+    expect(data.exists).toBe(false);
+  });
+
+  it("extracts tags from inline array format", async () => {
+    await createFile(
+      "/vault/meta-tags.md",
+      `---
+tags: [alpha, beta]
+---
+
+Content with #gamma tag`,
+      config
+    );
+
+    const result = await getFileMetadata("/vault/meta-tags.md", config);
+    const data = getTestResult(result) as { tags: string[] };
+
+    expect(data.tags).toContain("alpha");
+    expect(data.tags).toContain("beta");
+    expect(data.tags).toContain("gamma");
+  });
+
+  it("detects hasFrontmatter for file without it", async () => {
+    const result = await getFileMetadata("/vault/plain.md", config);
+    const data = getTestResult(result) as { hasFrontmatter: boolean };
+    expect(data.hasFrontmatter).toBe(false);
+  });
+
+  it("counts wikilinks correctly", async () => {
+    await createFile(
+      "/vault/link-count.md",
+      "Links: [[one]], [[two]], [[three]]",
+      config
+    );
+
+    const result = await getFileMetadata("/vault/link-count.md", config);
+    const data = getTestResult(result) as { linkCount: number };
+    expect(data.linkCount).toBe(3);
   });
 });

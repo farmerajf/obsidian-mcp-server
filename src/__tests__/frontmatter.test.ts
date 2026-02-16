@@ -192,4 +192,136 @@ Content`,
     const result = await updateFrontmatter("/vault/nonexistent.md", { title: "Test" }, config);
     expect(result.isError).toBe(true);
   });
+
+  it("serializes values with special characters", async () => {
+    await createFile("/vault/special-fm.md", "---\ntitle: Test\n---\n\nContent", config);
+
+    const result = await updateFrontmatter(
+      "/vault/special-fm.md",
+      { description: "has: colon", note: "has # hash", multi: "line\nbreak" },
+      config
+    );
+    const data = getTestResult(result) as { success: boolean };
+    expect(data.success).toBe(true);
+
+    const readResult = await readFile("/vault/special-fm.md", config);
+    const readData = getTestResult(readResult) as { content: string };
+    // Values with special chars should be quoted
+    expect(readData.content).toContain('"has: colon"');
+    expect(readData.content).toContain('"has # hash"');
+  });
+
+  it("serializes empty arrays", async () => {
+    await createFile("/vault/empty-arr-fm.md", "---\ntitle: Test\n---\n\nContent", config);
+
+    const result = await updateFrontmatter(
+      "/vault/empty-arr-fm.md",
+      { tags: [] },
+      config
+    );
+    const data = getTestResult(result) as { success: boolean };
+    expect(data.success).toBe(true);
+
+    const readResult = await readFile("/vault/empty-arr-fm.md", config);
+    const readData = getTestResult(readResult) as { content: string };
+    expect(readData.content).toContain("tags: []");
+  });
+
+  it("serializes nested objects", async () => {
+    await createFile("/vault/nested-fm.md", "---\ntitle: Test\n---\n\nContent", config);
+
+    const result = await updateFrontmatter(
+      "/vault/nested-fm.md",
+      { metadata: { author: "Alice", year: 2024 } },
+      config
+    );
+    const data = getTestResult(result) as { success: boolean; frontmatter: Record<string, unknown> };
+    expect(data.success).toBe(true);
+    expect(data.frontmatter.metadata).toEqual({ author: "Alice", year: 2024 });
+  });
+
+  it("serializes arrays with object items", async () => {
+    await createFile("/vault/arr-obj-fm.md", "---\ntitle: Test\n---\n\nContent", config);
+
+    const result = await updateFrontmatter(
+      "/vault/arr-obj-fm.md",
+      { items: [{ name: "a" }, { name: "b" }] },
+      config
+    );
+    const data = getTestResult(result) as { success: boolean };
+    expect(data.success).toBe(true);
+  });
+
+  it("serializes null and boolean values", async () => {
+    await createFile("/vault/types-fm.md", "---\ntitle: Test\n---\n\nContent", config);
+
+    const result = await updateFrontmatter(
+      "/vault/types-fm.md",
+      { draft: true, published: false, deprecated: null },
+      config
+    );
+    const data = getTestResult(result) as { success: boolean; frontmatter: Record<string, unknown> };
+    expect(data.success).toBe(true);
+    expect(data.frontmatter.draft).toBe(true);
+    expect(data.frontmatter.published).toBe(false);
+    expect(data.frontmatter.deprecated).toBeNull();
+  });
+});
+
+describe("parseYaml edge cases", () => {
+  it("parses multiline YAML list (- items)", async () => {
+    await createFile(
+      "/vault/multiline-yaml.md",
+      `---
+title: Test
+tags:
+  - alpha
+  - beta
+  - gamma
+---
+
+Content`,
+      config
+    );
+
+    const result = await getFrontmatter("/vault/multiline-yaml.md", config);
+    const data = getTestResult(result) as { frontmatter: { tags: string[] } };
+    expect(data.frontmatter.tags).toEqual(["alpha", "beta", "gamma"]);
+  });
+
+  it("parses quoted values", async () => {
+    await createFile(
+      "/vault/quoted-yaml.md",
+      `---
+title: "Hello World"
+author: 'Jane Doe'
+---
+
+Content`,
+      config
+    );
+
+    const result = await getFrontmatter("/vault/quoted-yaml.md", config);
+    const data = getTestResult(result) as { frontmatter: { title: string; author: string } };
+    expect(data.frontmatter.title).toBe("Hello World");
+    expect(data.frontmatter.author).toBe("Jane Doe");
+  });
+
+  it("parses null and tilde values", async () => {
+    await createFile(
+      "/vault/null-yaml.md",
+      `---
+empty: null
+also_empty: ~
+---
+
+Content`,
+      config
+    );
+
+    const result = await getFrontmatter("/vault/null-yaml.md", config);
+    const data = getTestResult(result) as { frontmatter: Record<string, unknown> };
+    expect(data.frontmatter.empty).toBeNull();
+    expect(data.frontmatter.also_empty).toBeNull();
+  });
 });

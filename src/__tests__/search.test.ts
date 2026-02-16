@@ -219,4 +219,91 @@ Test content`,
     expect(found).toBeDefined();
     expect(found!.path).toBe("/vault/notes/daily/date-search-test.md");
   });
+
+  it("searches with relative: yesterday", async () => {
+    const result = await searchByDate("modified", { relative: "yesterday" }, config);
+    const data = getTestResult(result) as { results: unknown[] };
+    // Just verify it doesn't error - files might or might not match
+    expect(data.results).toBeDefined();
+  });
+
+  it("searches with relative: this_week", async () => {
+    await createFile("/vault/week-test.md", "Content", config);
+    const result = await searchByDate("modified", { relative: "this_week" }, config);
+    const data = getTestResult(result) as { results: { path: string }[] };
+    expect(data.results.some((r) => r.path.includes("week-test"))).toBe(true);
+  });
+
+  it("searches with relative: last_7_days", async () => {
+    await createFile("/vault/week7-test.md", "Content", config);
+    const result = await searchByDate("modified", { relative: "last_7_days" }, config);
+    const data = getTestResult(result) as { results: { path: string }[] };
+    expect(data.results.some((r) => r.path.includes("week7-test"))).toBe(true);
+  });
+
+  it("searches with relative: this_month", async () => {
+    await createFile("/vault/month-test.md", "Content", config);
+    const result = await searchByDate("modified", { relative: "this_month" }, config);
+    const data = getTestResult(result) as { results: { path: string }[] };
+    expect(data.results.some((r) => r.path.includes("month-test"))).toBe(true);
+  });
+
+  it("searches with relative: last_30_days", async () => {
+    await createFile("/vault/month30-test.md", "Content", config);
+    const result = await searchByDate("modified", { relative: "last_30_days" }, config);
+    const data = getTestResult(result) as { results: { path: string }[] };
+    expect(data.results.some((r) => r.path.includes("month30-test"))).toBe(true);
+  });
+
+  it("searches with relative: this_year", async () => {
+    await createFile("/vault/year-test.md", "Content", config);
+    const result = await searchByDate("modified", { relative: "this_year" }, config);
+    const data = getTestResult(result) as { results: { path: string }[] };
+    expect(data.results.some((r) => r.path.includes("year-test"))).toBe(true);
+  });
+
+  it("sorts by name", async () => {
+    await createFile("/vault/z-dated.md", "---\ndate: 2024-03-01\n---\nContent", config);
+    await createFile("/vault/a-dated.md", "---\ndate: 2024-03-02\n---\nContent", config);
+
+    const result = await searchByDate(
+      "date",
+      { between: ["2024-03-01", "2024-03-31"] },
+      config,
+      undefined,
+      "name",
+      "asc"
+    );
+    const data = getTestResult(result) as { results: { title: string }[] };
+
+    if (data.results.length >= 2) {
+      expect(data.results[0].title.localeCompare(data.results[1].title)).toBeLessThanOrEqual(0);
+    }
+  });
+
+  it("skips files with invalid frontmatter dates", async () => {
+    await createFile(
+      "/vault/bad-date.md",
+      "---\ndate: not-a-date\n---\nContent",
+      config
+    );
+
+    const result = await searchByDate("date", { equals: "not-a-date" }, config);
+    const data = getTestResult(result) as { results: unknown[] };
+    // Invalid date should not appear in results
+    expect(data.results.length).toBe(0);
+  });
+
+  it("falls back to filename for title when no frontmatter title", async () => {
+    await createFile(
+      "/vault/no-title-date.md",
+      "---\ndate: 2024-05-01\n---\nContent without title",
+      config
+    );
+
+    const result = await searchByDate("date", { equals: "2024-05-01" }, config);
+    const data = getTestResult(result) as { results: { title: string }[] };
+    const found = data.results.find((r) => r.title === "no-title-date");
+    expect(found).toBeDefined();
+  });
 });

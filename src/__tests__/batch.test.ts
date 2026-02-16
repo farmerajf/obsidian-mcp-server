@@ -259,5 +259,93 @@ describe("batchWrite", () => {
       const read = await readFile("/vault/non-atomic-new.md", config);
       expect(read.isError).toBeFalsy();
     });
+
+    it("handles update on missing file in non-atomic mode", async () => {
+      const result = await batchWrite(
+        [
+          { type: "update", path: "/vault/missing-update.md", content: "New" },
+          { type: "create", path: "/vault/still-works.md", content: "Ok" },
+        ],
+        config,
+        false
+      );
+      const data = getTestResult(result) as {
+        results: { path: string; success: boolean; error?: string }[];
+        successCount: number;
+        failureCount: number;
+      };
+
+      expect(data.failureCount).toBe(1);
+      expect(data.successCount).toBe(1);
+      expect(data.results[0].error).toBe("File not found");
+    });
+
+    it("handles delete on missing file in non-atomic mode", async () => {
+      const result = await batchWrite(
+        [{ type: "delete", path: "/vault/missing-delete.md" }],
+        config,
+        false
+      );
+      const data = getTestResult(result) as {
+        results: { success: boolean; error?: string }[];
+        failureCount: number;
+      };
+
+      expect(data.failureCount).toBe(1);
+      expect(data.results[0].error).toBe("File not found");
+    });
+  });
+
+  describe("atomic pre-validation", () => {
+    it("fails atomic batch if update target is missing", async () => {
+      const result = await batchWrite(
+        [{ type: "update", path: "/vault/no-such-file.md", content: "Nope" }],
+        config,
+        true
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("not found for update");
+    });
+
+    it("fails atomic batch on ETag mismatch during update", async () => {
+      await createFile("/vault/etag-atomic.md", "Content", config);
+      const result = await batchWrite(
+        [{ type: "update", path: "/vault/etag-atomic.md", content: "New", expectedEtag: "bad-etag" }],
+        config,
+        true
+      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("ETag mismatch");
+    });
+  });
+
+  describe("batchRead extras", () => {
+    it("reads with includeMetadata", async () => {
+      const result = await batchRead(["/vault/index.md"], config, true, false);
+      const data = getTestResult(result) as {
+        results: { success: boolean; metadata?: { size: number; modified: string } }[];
+      };
+
+      expect(data.results[0].success).toBe(true);
+      expect(data.results[0].metadata).toBeDefined();
+      expect(data.results[0].metadata!.size).toBeGreaterThan(0);
+    });
+
+    it("handles mix of existing and missing files with failFast=false", async () => {
+      const result = await batchRead(
+        ["/vault/index.md", "/vault/nope.md", "/vault/todo.md"],
+        config,
+        false,
+        false
+      );
+      const data = getTestResult(result) as {
+        results: { path: string; success: boolean }[];
+        successCount: number;
+        failureCount: number;
+      };
+
+      expect(data.successCount).toBe(2);
+      expect(data.failureCount).toBe(1);
+    });
   });
 });

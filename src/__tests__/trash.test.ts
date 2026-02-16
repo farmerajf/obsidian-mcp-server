@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { vol } from "memfs";
 import "./helpers/setup.js";
 import { createTestConfig, getTestResult } from "./helpers/setup.js";
 import { deleteFile, listTrash, restoreFromTrash, emptyTrash } from "../tools/delete.js";
@@ -140,6 +141,64 @@ describe("trash management", () => {
       const afterResult = await listTrash(config);
       const afterData = getTestResult(afterResult) as { totalItems: number };
       expect(afterData.totalItems).toBe(0);
+    });
+
+    it("empties only items older than N days", async () => {
+      // Create and trash a file
+      await createFile("/vault/old-trash.md", "Old content", config);
+      await deleteFile("/vault/old-trash.md", config, false);
+
+      // Emptying with olderThan=0 should delete everything (all items are older than 0 days ago)
+      // but with a very large olderThan, nothing should be deleted since items are recent
+      const result = await emptyTrash(config, true, 9999);
+      const data = getTestResult(result) as { success: boolean; deletedCount: number };
+
+      expect(data.success).toBe(true);
+      expect(data.deletedCount).toBe(0);
+    });
+
+    it("handles directories in trash", async () => {
+      // Manually create a directory in trash to simulate trashed directories
+      vol.mkdirSync("/vault/.trash/old-dir.123456", { recursive: true });
+      vol.writeFileSync("/vault/.trash/old-dir.123456/file.md", "content");
+
+      const result = await emptyTrash(config, true);
+      const data = getTestResult(result) as { success: boolean; deletedCount: number };
+
+      expect(data.success).toBe(true);
+      expect(data.deletedCount).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("restoreFromTrash (additional)", () => {
+    it("restores to parent directory that does not exist", async () => {
+      await createFile("/vault/deep-restore.md", "Deep content", config);
+      const deleteResult = await deleteFile("/vault/deep-restore.md", config, false);
+      const deleteData = getTestResult(deleteResult) as { trashedTo: string };
+
+      const result = await restoreFromTrash(
+        deleteData.trashedTo,
+        config,
+        "/vault/new-parent/sub/deep-restore.md"
+      );
+      const data = getTestResult(result) as { success: boolean };
+      expect(data.success).toBe(true);
+
+      // File should exist at nested path
+      const readResult = await readFile("/vault/new-parent/sub/deep-restore.md", config);
+      const readData = getTestResult(readResult) as { content: string };
+      expect(readData.content).toBe("Deep content");
+    });
+
+    it("restores to default location (vault root) when no restoreTo given", async () => {
+      await createFile("/vault/default-restore.md", "Restore me", config);
+      const deleteResult = await deleteFile("/vault/default-restore.md", config, false);
+      const deleteData = getTestResult(deleteResult) as { trashedTo: string };
+
+      const result = await restoreFromTrash(deleteData.trashedTo, config);
+      const data = getTestResult(result) as { success: boolean; restoredTo: string };
+      expect(data.success).toBe(true);
+      expect(data.restoredTo).toContain("default-restore.md");
     });
   });
 });

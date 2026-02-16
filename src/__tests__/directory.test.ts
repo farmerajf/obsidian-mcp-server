@@ -154,4 +154,73 @@ describe("getDirectoryInfo", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("not a directory");
   });
+
+  it("returns file and directory children with size info", async () => {
+    await createDirectory("/vault/info-test", config);
+    await createFile("/vault/info-test/file1.md", "Hello world", config);
+    await createFile("/vault/info-test/file2.md", "More content here", config);
+    await createDirectory("/vault/info-test/subdir", config);
+
+    const result = await getDirectoryInfo("/vault/info-test", config);
+    const data = getTestResult(result) as {
+      fileCount: number;
+      directoryCount: number;
+      totalSize: number;
+      children: { name: string; type: string }[];
+    };
+
+    expect(data.fileCount).toBe(2);
+    expect(data.directoryCount).toBe(1);
+    expect(data.totalSize).toBeGreaterThan(0);
+    expect(data.children).toContainEqual({ name: "file1.md", type: "file" });
+    expect(data.children).toContainEqual({ name: "subdir", type: "directory" });
+  });
+});
+
+describe("renameDirectory (additional)", () => {
+  it("returns error when renaming to existing name", async () => {
+    await createDirectory("/vault/dir-a", config);
+    await createDirectory("/vault/dir-b", config);
+
+    const result = await renameDirectory("/vault/dir-a", "dir-b", config);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("already exists");
+  });
+
+  it("returns error when target is a file, not directory", async () => {
+    const result = await renameDirectory("/vault/index.md", "new-name", config);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("not a directory");
+  });
+});
+
+describe("deleteDirectory (additional)", () => {
+  it("returns error for non-empty directory without recursive", async () => {
+    await createDirectory("/vault/has-files", config);
+    await createFile("/vault/has-files/data.md", "content", config);
+
+    const result = await deleteDirectory("/vault/has-files", config, false, false);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("not empty");
+  });
+
+  it("returns error for recursive without confirm", async () => {
+    await createDirectory("/vault/needs-confirm", config);
+    await createFile("/vault/needs-confirm/data.md", "content", config);
+
+    const result = await deleteDirectory("/vault/needs-confirm", config, true, false);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("confirm");
+  });
+
+  it("returns error for non-existent directory", async () => {
+    const result = await deleteDirectory("/vault/ghost-dir", config, false, false);
+    expect(result.isError).toBe(true);
+  });
+
+  it("returns error when path is a file", async () => {
+    const result = await deleteDirectory("/vault/index.md", config, false, false);
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("not a directory");
+  });
 });
