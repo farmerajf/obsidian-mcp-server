@@ -18,6 +18,10 @@ function createMcpServer(config: Config): McpServer {
       capabilities: {
         tools: {},
       },
+      instructions:
+        "When referencing or citing Obsidian notes, always provide Obsidian URLs " +
+        "(obsidian://open?vault=...&file=...) so users can click to open them directly " +
+        "in Obsidian. Use the path_to_obsidian_url tool to convert file paths to Obsidian URLs.",
     }
   );
   registerTools(server, config);

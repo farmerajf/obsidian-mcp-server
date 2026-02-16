@@ -35,6 +35,9 @@ import { searchByDate } from "./dates.js";
 // Phase 4-5: Batch operations
 import { batchRead, batchWrite } from "./batch.js";
 
+// Obsidian URLs
+import { obsidianUrlToPath, pathToObsidianUrl } from "./obsidian-url.js";
+
 export function registerTools(server: McpServer, config: Config): void {
   // ========================================
   // CORE FILE OPERATIONS
@@ -468,5 +471,33 @@ export function registerTools(server: McpServer, config: Config): void {
       atomic: z.boolean().default(true).describe("All-or-nothing"),
     },
     async ({ operations, atomic }) => batchWrite(operations, config, atomic)
+  );
+
+  // ========================================
+  // OBSIDIAN URLS
+  // ========================================
+
+  server.tool(
+    "obsidian_url_to_path",
+    "Convert an Obsidian URL (obsidian://open?vault=...&file=...) to a vault file path.",
+    {
+      url: z
+        .string()
+        .describe(
+          "Obsidian URL (e.g., obsidian://open?vault=personal&file=notes/todo)"
+        ),
+    },
+    async ({ url }) => obsidianUrlToPath(url, config)
+  );
+
+  server.tool(
+    "path_to_obsidian_url",
+    "Convert a vault file path to an Obsidian URL for deep-linking.",
+    {
+      path: z
+        .string()
+        .describe("File path (e.g., /personal/notes/todo.md)"),
+    },
+    async ({ path }) => pathToObsidianUrl(path, config)
   );
 }
