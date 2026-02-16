@@ -7,6 +7,23 @@ import { registerTools } from "./tools/index.js";
 
 const config = loadConfig(process.env.CONFIG_PATH);
 
+function buildInstructions(config: Config): string {
+  const vaultNames = Object.keys(config.paths);
+  const vaultList = vaultNames.map((v) => `/${v}/`).join(", ");
+  const vaultLine =
+    vaultNames.length === 1
+      ? `You have access to one vault. All file paths are prefixed with the vault name: ${vaultList}.`
+      : `You have access to ${vaultNames.length} vaults. All file paths are prefixed with the vault name: ${vaultList}. Use / to list all vaults.`;
+
+  return [
+    vaultLine,
+    "When referencing or citing Obsidian notes, always provide Obsidian URLs (obsidian://open?vault=...&file=...) so users can click to open them directly in Obsidian. Use the path_to_obsidian_url tool to convert file paths to Obsidian URLs.",
+    "When referencing notes within the vault, prefer [[wikilinks]] over markdown links. Use resolve_wikilink to verify a link target exists before inserting it.",
+    "Before editing a file, read it first to understand its structure. Use update_frontmatter for metadata changes instead of raw text edits — it preserves existing frontmatter structure and uses merge semantics.",
+    "Always pass expectedEtag when updating files to avoid overwriting concurrent changes made in the Obsidian app. Prefer soft delete (default) over permanent delete.",
+  ].join(" ");
+}
+
 // Factory function to create a new MCP server instance
 function createMcpServer(config: Config): McpServer {
   const server = new McpServer(
@@ -18,12 +35,7 @@ function createMcpServer(config: Config): McpServer {
       capabilities: {
         tools: {},
       },
-      instructions: [
-        "When referencing or citing Obsidian notes, always provide Obsidian URLs (obsidian://open?vault=...&file=...) so users can click to open them directly in Obsidian. Use the path_to_obsidian_url tool to convert file paths to Obsidian URLs.",
-        "When referencing notes within the vault, prefer [[wikilinks]] over markdown links. Use resolve_wikilink to verify a link target exists before inserting it.",
-        "Before editing a file, read it first to understand its structure. Use update_frontmatter for metadata changes instead of raw text edits — it preserves existing frontmatter structure and uses merge semantics.",
-        "Always pass expectedEtag when updating files to avoid overwriting concurrent changes made in the Obsidian app. Prefer soft delete (default) over permanent delete.",
-      ].join(" "),
+      instructions: buildInstructions(config),
     }
   );
   registerTools(server, config);
