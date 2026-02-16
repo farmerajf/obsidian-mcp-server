@@ -18,10 +18,12 @@ function createMcpServer(config: Config): McpServer {
       capabilities: {
         tools: {},
       },
-      instructions:
-        "When referencing or citing Obsidian notes, always provide Obsidian URLs " +
-        "(obsidian://open?vault=...&file=...) so users can click to open them directly " +
-        "in Obsidian. Use the path_to_obsidian_url tool to convert file paths to Obsidian URLs.",
+      instructions: [
+        "When referencing or citing Obsidian notes, always provide Obsidian URLs (obsidian://open?vault=...&file=...) so users can click to open them directly in Obsidian. Use the path_to_obsidian_url tool to convert file paths to Obsidian URLs.",
+        "When referencing notes within the vault, prefer [[wikilinks]] over markdown links. Use resolve_wikilink to verify a link target exists before inserting it.",
+        "Before editing a file, read it first to understand its structure. Use update_frontmatter for metadata changes instead of raw text edits — it preserves existing frontmatter structure and uses merge semantics.",
+        "Always pass expectedEtag when updating files to avoid overwriting concurrent changes made in the Obsidian app. Prefer soft delete (default) over permanent delete.",
+      ].join(" "),
     }
   );
   registerTools(server, config);
