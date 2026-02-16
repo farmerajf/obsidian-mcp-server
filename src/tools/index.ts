@@ -38,6 +38,14 @@ import { batchRead, batchWrite } from "./batch.js";
 // Obsidian URLs
 import { obsidianUrlToPath, pathToObsidianUrl } from "./obsidian-url.js";
 
+// URL resolution utility
+import { resolvePathOrUrl } from "../utils/resolve-url.js";
+
+const urlParam = z
+  .string()
+  .optional()
+  .describe("Obsidian URL (obsidian://open?vault=...&file=...) — alternative to path");
+
 export function registerTools(server: McpServer, config: Config): void {
   // ========================================
   // CORE FILE OPERATIONS
@@ -47,50 +55,55 @@ export function registerTools(server: McpServer, config: Config): void {
     "list_directory",
     "List contents of a directory. Use '/' to list root.",
     {
-      path: z.string().describe("Directory path (e.g., '/' or '/notes')"),
+      path: z.string().optional().describe("Directory path (e.g., '/' or '/notes')"),
+      url: urlParam,
     },
-    async ({ path }) => listDirectory(path, config)
+    async ({ path, url }) => listDirectory(resolvePathOrUrl(path, url, config), config)
   );
 
   server.tool(
     "read_file",
     "Read contents of a file. Returns content and ETag for conflict detection.",
     {
-      path: z.string().describe("File path (e.g., '/notes/todo.md')"),
+      path: z.string().optional().describe("File path (e.g., '/notes/todo.md')"),
+      url: urlParam,
     },
-    async ({ path }) => readFile(path, config)
+    async ({ path, url }) => readFile(resolvePathOrUrl(path, url, config), config)
   );
 
   server.tool(
     "create_file",
     "Create a new file. Fails if file already exists.",
     {
-      path: z.string().describe("File path"),
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
       content: z.string().describe("Content to write"),
     },
-    async ({ path, content }) => createFile(path, content, config)
+    async ({ path, url, content }) => createFile(resolvePathOrUrl(path, url, config), content, config)
   );
 
   server.tool(
     "update_file",
     "Update an existing file. Use expectedEtag to prevent overwriting concurrent changes.",
     {
-      path: z.string().describe("File path"),
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
       content: z.string().describe("New content"),
       expectedEtag: z.string().optional().describe("Expected ETag for conflict detection"),
     },
-    async ({ path, content, expectedEtag }) =>
-      updateFile(path, content, expectedEtag, config)
+    async ({ path, url, content, expectedEtag }) =>
+      updateFile(resolvePathOrUrl(path, url, config), content, expectedEtag, config)
   );
 
   server.tool(
     "delete_file",
     "Delete a file. By default moves to .trash (soft delete).",
     {
-      path: z.string().describe("File path"),
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
       permanent: z.boolean().default(false).describe("Skip trash and delete permanently"),
     },
-    async ({ path, permanent }) => deleteFile(path, config, permanent)
+    async ({ path, url, permanent }) => deleteFile(resolvePathOrUrl(path, url, config), config, permanent)
   );
 
   server.tool(
@@ -99,9 +112,10 @@ export function registerTools(server: McpServer, config: Config): void {
     {
       query: z.string().describe("Search query (regex supported)"),
       path: z.string().optional().describe("Limit search to directory"),
+      url: urlParam.describe("Obsidian URL to limit search to directory — alternative to path"),
       type: z.enum(["content", "filename"]).default("content"),
     },
-    async ({ query, path, type }) => searchFiles(query, path, type, config)
+    async ({ query, path, url, type }) => searchFiles(query, path || (url ? resolvePathOrUrl(undefined, url, config) : undefined), type, config)
   );
 
   // ========================================
@@ -112,28 +126,30 @@ export function registerTools(server: McpServer, config: Config): void {
     "append_file",
     "Append content to end of file. Great for daily notes and logs.",
     {
-      path: z.string().describe("File path"),
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
       content: z.string().describe("Content to append"),
       createIfMissing: z.boolean().default(false).describe("Create file if doesn't exist"),
       ensureNewline: z.boolean().default(true).describe("Ensure content starts on new line"),
       separator: z.string().optional().describe("Custom separator before content"),
     },
-    async ({ path, content, createIfMissing, ensureNewline, separator }) =>
-      appendFile(path, content, config, { createIfMissing, ensureNewline, separator })
+    async ({ path, url, content, createIfMissing, ensureNewline, separator }) =>
+      appendFile(resolvePathOrUrl(path, url, config), content, config, { createIfMissing, ensureNewline, separator })
   );
 
   server.tool(
     "prepend_file",
     "Insert content at beginning of file (after frontmatter if present).",
     {
-      path: z.string().describe("File path"),
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
       content: z.string().describe("Content to prepend"),
       afterFrontmatter: z.boolean().default(true).describe("Insert after YAML frontmatter"),
       createIfMissing: z.boolean().default(false).describe("Create file if doesn't exist"),
       ensureNewline: z.boolean().default(true).describe("Ensure content ends with newline"),
     },
-    async ({ path, content, afterFrontmatter, createIfMissing, ensureNewline }) =>
-      prependFile(path, content, config, { afterFrontmatter, createIfMissing, ensureNewline })
+    async ({ path, url, content, afterFrontmatter, createIfMissing, ensureNewline }) =>
+      prependFile(resolvePathOrUrl(path, url, config), content, config, { afterFrontmatter, createIfMissing, ensureNewline })
   );
 
   // ========================================
@@ -144,7 +160,8 @@ export function registerTools(server: McpServer, config: Config): void {
     "patch_file",
     "Apply surgical edits without sending entire file content.",
     {
-      path: z.string().describe("File path"),
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
       patches: z.array(
         z.object({
           type: z.enum([
@@ -167,30 +184,32 @@ export function registerTools(server: McpServer, config: Config): void {
       ),
       expectedEtag: z.string().optional(),
     },
-    async ({ path, patches, expectedEtag }) => patchFile(path, patches, config, expectedEtag)
+    async ({ path, url, patches, expectedEtag }) => patchFile(resolvePathOrUrl(path, url, config), patches, config, expectedEtag)
   );
 
   server.tool(
     "read_file_partial",
     "Read only a portion of a file by lines or bytes.",
     {
-      path: z.string().describe("File path"),
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
       mode: z.enum(["lines", "bytes"]),
       start: z.number().describe("Start line (1-indexed) or byte offset"),
       end: z.number().optional().describe("End line or byte offset"),
       includeMeta: z.boolean().default(true).describe("Include total size/lines"),
     },
-    async ({ path, mode, start, end, includeMeta }) =>
-      readFilePartial(path, config, { mode, start, end, includeMeta })
+    async ({ path, url, mode, start, end, includeMeta }) =>
+      readFilePartial(resolvePathOrUrl(path, url, config), config, { mode, start, end, includeMeta })
   );
 
   server.tool(
     "get_file_metadata",
     "Get file info without reading content: size, dates, tags, link count.",
     {
-      path: z.string().describe("File path"),
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
     },
-    async ({ path }) => getFileMetadata(path, config)
+    async ({ path, url }) => getFileMetadata(resolvePathOrUrl(path, url, config), config)
   );
 
   // ========================================
@@ -234,39 +253,43 @@ export function registerTools(server: McpServer, config: Config): void {
     "create_directory",
     "Create a new directory (including nested paths).",
     {
-      path: z.string().describe("Directory path"),
+      path: z.string().optional().describe("Directory path"),
+      url: urlParam,
     },
-    async ({ path }) => createDirectory(path, config)
+    async ({ path, url }) => createDirectory(resolvePathOrUrl(path, url, config), config)
   );
 
   server.tool(
     "rename_directory",
     "Rename a directory.",
     {
-      path: z.string().describe("Current path"),
+      path: z.string().optional().describe("Current path"),
+      url: urlParam,
       newName: z.string().describe("New name (not full path)"),
     },
-    async ({ path, newName }) => renameDirectory(path, newName, config)
+    async ({ path, url, newName }) => renameDirectory(resolvePathOrUrl(path, url, config), newName, config)
   );
 
   server.tool(
     "delete_directory",
     "Delete a directory. Protected: never deletes .obsidian.",
     {
-      path: z.string().describe("Directory path"),
+      path: z.string().optional().describe("Directory path"),
+      url: urlParam,
       recursive: z.boolean().default(false).describe("Delete contents"),
       confirm: z.boolean().default(false).describe("Required if recursive"),
     },
-    async ({ path, recursive, confirm }) => deleteDirectory(path, config, recursive, confirm)
+    async ({ path, url, recursive, confirm }) => deleteDirectory(resolvePathOrUrl(path, url, config), config, recursive, confirm)
   );
 
   server.tool(
     "get_directory_info",
     "Get directory info: file count, size, children.",
     {
-      path: z.string().describe("Directory path"),
+      path: z.string().optional().describe("Directory path"),
+      url: urlParam,
     },
-    async ({ path }) => getDirectoryInfo(path, config)
+    async ({ path, url }) => getDirectoryInfo(resolvePathOrUrl(path, url, config), config)
   );
 
   // ========================================
@@ -277,24 +300,33 @@ export function registerTools(server: McpServer, config: Config): void {
     "move",
     "Move file/directory with automatic wikilink updates.",
     {
-      source: z.string().describe("Source path"),
-      destination: z.string().describe("Destination path"),
+      source: z.string().optional().describe("Source path"),
+      sourceUrl: z.string().optional().describe("Source as Obsidian URL — alternative to source"),
+      destination: z.string().optional().describe("Destination path"),
+      destinationUrl: z.string().optional().describe("Destination as Obsidian URL — alternative to destination"),
       updateLinks: z.boolean().default(true).describe("Update wikilinks in vault"),
       overwrite: z.boolean().default(false),
     },
-    async ({ source, destination, updateLinks, overwrite }) =>
-      moveFile(source, destination, config, updateLinks, overwrite)
+    async ({ source, sourceUrl, destination, destinationUrl, updateLinks, overwrite }) =>
+      moveFile(
+        resolvePathOrUrl(source, sourceUrl, config),
+        resolvePathOrUrl(destination, destinationUrl, config),
+        config,
+        updateLinks,
+        overwrite
+      )
   );
 
   server.tool(
     "rename",
     "Rename file in place with automatic wikilink updates.",
     {
-      path: z.string().describe("Current path"),
+      path: z.string().optional().describe("Current path"),
+      url: urlParam,
       newName: z.string().describe("New filename"),
       updateLinks: z.boolean().default(true),
     },
-    async ({ path, newName, updateLinks }) => renameFile(path, newName, config, updateLinks)
+    async ({ path, url, newName, updateLinks }) => renameFile(resolvePathOrUrl(path, url, config), newName, config, updateLinks)
   );
 
   // ========================================
@@ -305,22 +337,24 @@ export function registerTools(server: McpServer, config: Config): void {
     "get_frontmatter",
     "Extract YAML frontmatter as JSON.",
     {
-      path: z.string().describe("Markdown file path"),
+      path: z.string().optional().describe("Markdown file path"),
+      url: urlParam,
     },
-    async ({ path }) => getFrontmatter(path, config)
+    async ({ path, url }) => getFrontmatter(resolvePathOrUrl(path, url, config), config)
   );
 
   server.tool(
     "update_frontmatter",
     "Update frontmatter fields. Uses merge semantics.",
     {
-      path: z.string().describe("Markdown file path"),
+      path: z.string().optional().describe("Markdown file path"),
+      url: urlParam,
       updates: z.record(z.string(), z.unknown()).describe("Key-value pairs to update"),
       remove: z.array(z.string()).optional().describe("Keys to remove"),
       expectedEtag: z.string().optional(),
     },
-    async ({ path, updates, remove, expectedEtag }) =>
-      updateFrontmatter(path, updates, config, remove, expectedEtag)
+    async ({ path, url, updates, remove, expectedEtag }) =>
+      updateFrontmatter(resolvePathOrUrl(path, url, config), updates, config, remove, expectedEtag)
   );
 
   // ========================================
@@ -341,12 +375,13 @@ export function registerTools(server: McpServer, config: Config): void {
     "extract_wikilinks",
     "Extract all wikilinks from a file.",
     {
-      path: z.string().describe("File path"),
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
       resolve: z.boolean().default(true).describe("Resolve each link"),
       includeEmbeds: z.boolean().default(true).describe("Include ![[embeds]]"),
     },
-    async ({ path, resolve, includeEmbeds }) =>
-      extractWikilinks(path, config, resolve, includeEmbeds)
+    async ({ path, url, resolve, includeEmbeds }) =>
+      extractWikilinks(resolvePathOrUrl(path, url, config), config, resolve, includeEmbeds)
   );
 
   // ========================================
@@ -357,12 +392,13 @@ export function registerTools(server: McpServer, config: Config): void {
     "get_backlinks",
     "Find all files that link to specified file.",
     {
-      path: z.string().describe("Target file path"),
+      path: z.string().optional().describe("Target file path"),
+      url: urlParam,
       includeContext: z.boolean().default(false).describe("Include surrounding text"),
       contextLines: z.number().default(1).describe("Lines of context"),
     },
-    async ({ path, includeContext, contextLines }) =>
-      getBacklinks(path, config, includeContext, contextLines)
+    async ({ path, url, includeContext, contextLines }) =>
+      getBacklinks(resolvePathOrUrl(path, url, config), config, includeContext, contextLines)
   );
 
   // ========================================
@@ -376,10 +412,11 @@ export function registerTools(server: McpServer, config: Config): void {
       tags: z.array(z.string()).describe("Tags to search (without #)"),
       match: z.enum(["any", "all"]).default("any"),
       path: z.string().optional().describe("Limit to directory"),
+      url: urlParam.describe("Obsidian URL to limit search to directory — alternative to path"),
       location: z.enum(["frontmatter", "body", "both"]).default("both"),
     },
-    async ({ tags, match, path, location }) =>
-      searchByTag(tags, config, match, path, location)
+    async ({ tags, match, path, url, location }) =>
+      searchByTag(tags, config, match, path || (url ? resolvePathOrUrl(undefined, url, config) : undefined), location)
   );
 
   server.tool(
@@ -387,9 +424,10 @@ export function registerTools(server: McpServer, config: Config): void {
     "Get all tags in vault with usage counts.",
     {
       path: z.string().optional().describe("Limit to directory"),
+      url: urlParam.describe("Obsidian URL to limit search to directory — alternative to path"),
       minCount: z.number().default(1).describe("Minimum usage count"),
     },
-    async ({ path, minCount }) => listAllTags(config, path, minCount)
+    async ({ path, url, minCount }) => listAllTags(config, path || (url ? resolvePathOrUrl(undefined, url, config) : undefined), minCount)
   );
 
   // ========================================
@@ -402,12 +440,13 @@ export function registerTools(server: McpServer, config: Config): void {
     {
       query: z.string().describe("Search query"),
       path: z.string().optional().describe("Limit to directory"),
+      url: urlParam.describe("Obsidian URL to limit search to directory — alternative to path"),
       maxResults: z.number().default(20),
       threshold: z.number().default(0.4).describe("Match threshold 0-1"),
       includeDirectories: z.boolean().default(false),
     },
-    async ({ query, path, maxResults, threshold, includeDirectories }) =>
-      fuzzySearch(query, config, path, maxResults, threshold, includeDirectories)
+    async ({ query, path, url, maxResults, threshold, includeDirectories }) =>
+      fuzzySearch(query, config, path || (url ? resolvePathOrUrl(undefined, url, config) : undefined), maxResults, threshold, includeDirectories)
   );
 
   // ========================================
@@ -427,12 +466,13 @@ export function registerTools(server: McpServer, config: Config): void {
         z.object({ equals: z.string() }),
       ]),
       path: z.string().optional(),
+      url: urlParam.describe("Obsidian URL to limit search to directory — alternative to path"),
       sortBy: z.enum(["date", "name"]).default("date"),
       sortOrder: z.enum(["asc", "desc"]).default("desc"),
       maxResults: z.number().default(50),
     },
-    async ({ dateField, condition, path, sortBy, sortOrder, maxResults }) =>
-      searchByDate(dateField, condition, config, path, sortBy, sortOrder, maxResults)
+    async ({ dateField, condition, path, url, sortBy, sortOrder, maxResults }) =>
+      searchByDate(dateField, condition, config, path || (url ? resolvePathOrUrl(undefined, url, config) : undefined), sortBy, sortOrder, maxResults)
   );
 
   // ========================================
@@ -496,8 +536,10 @@ export function registerTools(server: McpServer, config: Config): void {
     {
       path: z
         .string()
+        .optional()
         .describe("File path (e.g., /personal/notes/todo.md)"),
+      url: urlParam,
     },
-    async ({ path }) => pathToObsidianUrl(path, config)
+    async ({ path, url }) => pathToObsidianUrl(resolvePathOrUrl(path, url, config), config)
   );
 }
