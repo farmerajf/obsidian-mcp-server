@@ -3,6 +3,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
 import { generateEtag } from "../utils/etag.js";
+import { parseSections } from "../utils/sections.js";
 
 export async function readFilePartial(
   path: string,
@@ -155,6 +156,11 @@ export async function getFileMetadata(
       // Count wikilinks
       const wikilinks = content.match(/\[\[([^\]]+)\]\]/g);
       result.linkCount = wikilinks ? wikilinks.length : 0;
+
+      // Section count and large file hint
+      const parsed = parseSections(content);
+      result.sectionCount = parsed.sections.length;
+      result.largeFile = (result.lineCount as number) > 200;
     }
 
     return {

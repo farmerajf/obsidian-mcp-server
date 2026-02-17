@@ -35,6 +35,9 @@ import { searchByDate } from "./dates.js";
 // Phase 4-5: Batch operations
 import { batchRead, batchWrite } from "./batch.js";
 
+// Section-aware reading
+import { getSections, readSection } from "./sections.js";
+
 // Obsidian URLs
 import { obsidianUrlToPath, pathToObsidianUrl } from "./obsidian-url.js";
 
@@ -63,12 +66,13 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "read_file",
-    "Read contents of a file. Returns content and ETag for conflict detection.",
+    "Read contents of a file. Returns content and ETag for conflict detection. Large files are truncated by default — use get_sections + read_section for targeted reading.",
     {
       path: z.string().optional().describe("File path (e.g., '/notes/todo.md')"),
       url: urlParam,
+      maxLines: z.number().default(500).describe("Maximum lines to return. Default 500. Set to 0 for no limit."),
     },
-    async ({ path, url }) => readFile(resolvePathOrUrl(path, url, config), config)
+    async ({ path, url, maxLines }) => readFile(resolvePathOrUrl(path, url, config), config, maxLines)
   );
 
   server.tool(
@@ -511,6 +515,34 @@ export function registerTools(server: McpServer, config: Config): void {
       atomic: z.boolean().default(true).describe("All-or-nothing"),
     },
     async ({ operations, atomic }) => batchWrite(operations, config, atomic)
+  );
+
+  // ========================================
+  // SECTION-AWARE READING
+  // ========================================
+
+  server.tool(
+    "get_sections",
+    "Get the heading structure of a markdown file as a table of contents with line ranges. No body content is returned. Use this to understand file structure before reading specific sections.",
+    {
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
+    },
+    async ({ path, url }) => getSections(resolvePathOrUrl(path, url, config), config)
+  );
+
+  server.tool(
+    "read_section",
+    "Read the content of a specific section identified by heading text. More efficient than read_file for large files.",
+    {
+      path: z.string().optional().describe("File path"),
+      url: urlParam,
+      heading: z.string().describe("Heading text to match including # prefix (e.g., '## Summary'). Use 'frontmatter' to read YAML frontmatter."),
+      includeChildren: z.boolean().default(true).describe("Include nested child sections"),
+      includeHeading: z.boolean().default(true).describe("Include the heading line itself"),
+    },
+    async ({ path, url, heading, includeChildren, includeHeading }) =>
+      readSection(resolvePathOrUrl(path, url, config), config, { heading, includeChildren, includeHeading })
   );
 
   // ========================================
