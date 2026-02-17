@@ -66,13 +66,12 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "read_file",
-    "Read contents of a file. Returns content and ETag for conflict detection. Large files are truncated by default — use get_sections + read_section for targeted reading.",
+    "Read contents of a file. Returns content and ETag for conflict detection. Files over 500 lines are automatically truncated — use get_sections + read_section for targeted reading of large files.",
     {
       path: z.string().optional().describe("File path (e.g., '/notes/todo.md')"),
       url: urlParam,
-      maxLines: z.number().default(500).describe("Maximum lines to return. Default 500. Set to 0 for no limit."),
     },
-    async ({ path, url, maxLines }) => readFile(resolvePathOrUrl(path, url, config), config, maxLines)
+    async ({ path, url }) => readFile(resolvePathOrUrl(path, url, config), config)
   );
 
   server.tool(

@@ -4,10 +4,11 @@ import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
 import { generateEtag } from "../utils/etag.js";
 
+const MAX_LINES = 500;
+
 export async function readFile(
   path: string,
-  config: Config,
-  maxLines: number = 500
+  config: Config
 ): Promise<CallToolResult> {
   try {
     const resolved = resolvePath(path, config);
@@ -17,8 +18,8 @@ export async function readFile(
     const lines = fullContent.split("\n");
     const totalLines = lines.length;
 
-    if (maxLines > 0 && totalLines > maxLines) {
-      const truncatedContent = lines.slice(0, maxLines).join("\n");
+    if (totalLines > MAX_LINES) {
+      const truncatedContent = lines.slice(0, MAX_LINES).join("\n");
 
       return {
         content: [
@@ -30,9 +31,9 @@ export async function readFile(
                 content: truncatedContent,
                 etag,
                 truncated: true,
-                linesReturned: maxLines,
+                linesReturned: MAX_LINES,
                 totalLines,
-                message: `File truncated at ${maxLines} lines (${totalLines} total). Use get_sections to see file structure, read_section to read specific sections, or read_file with maxLines: 0 for the full file.`,
+                message: `File truncated at ${MAX_LINES} lines (${totalLines} total). Use get_sections to see file structure, or read_section to read specific sections.`,
               },
               null,
               2
