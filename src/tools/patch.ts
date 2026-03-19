@@ -65,6 +65,10 @@ export async function patchFile(
 
     let patchesApplied = 0;
     let linesAffected = 0;
+    const errors: string[] = [];
+    // Track cumulative line offset so that line-number patches in a batch
+    // reference the original file's line numbers rather than the shifted ones.
+    let lineOffset = 0;
 
     for (const patch of patches) {
       const lines = content.split("\n");
@@ -72,25 +76,47 @@ export async function patchFile(
       switch (patch.type) {
         case "replace_lines": {
           if (!patch.startLine || !patch.endLine || patch.content === undefined) {
+            errors.push("replace_lines: missing required fields (startLine, endLine, content)");
             continue;
           }
-          const start = patch.startLine - 1; // Convert to 0-indexed
-          const end = patch.endLine;
+          const start = patch.startLine - 1 + lineOffset;
+          const end = patch.endLine + lineOffset;
+          const deleteCount = end - start;
           const newLines = patch.content.split("\n");
-          lines.splice(start, end - start, ...newLines);
-          linesAffected += end - start;
+          lines.splice(start, deleteCount, ...newLines);
+          lineOffset += newLines.length - deleteCount;
+          linesAffected += Math.max(deleteCount, newLines.length);
           content = lines.join("\n");
           patchesApplied++;
           break;
         }
 
         case "insert_after": {
-          if (!patch.line || patch.content === undefined) {
+          if (patch.content === undefined) {
+            errors.push("insert_after: missing required field (content)");
             continue;
           }
-          const insertIndex = patch.line; // Insert after this line (0-indexed would be line-1, but we want after)
+
+          let insertIndex: number;
+
+          if (patch.search !== undefined) {
+            // String-based: find line containing the search text (literal match)
+            const lineIdx = lines.findIndex(line => line.includes(patch.search!));
+            if (lineIdx === -1) {
+              errors.push(`insert_after: search string not found: "${patch.search}"`);
+              continue;
+            }
+            insertIndex = lineIdx + 1;
+          } else if (patch.line !== undefined && patch.line !== 0) {
+            insertIndex = patch.line + lineOffset;
+          } else {
+            errors.push("insert_after: must provide either 'search' or 'line' parameter");
+            continue;
+          }
+
           const newLines = patch.content.split("\n");
           lines.splice(insertIndex, 0, ...newLines);
+          lineOffset += newLines.length;
           linesAffected += newLines.length;
           content = lines.join("\n");
           patchesApplied++;
@@ -99,11 +125,14 @@ export async function patchFile(
 
         case "delete_lines": {
           if (!patch.startLine || !patch.endLine) {
+            errors.push("delete_lines: missing required fields (startLine, endLine)");
             continue;
           }
-          const start = patch.startLine - 1;
-          const end = patch.endLine;
-          const deleted = lines.splice(start, end - start);
+          const start = patch.startLine - 1 + lineOffset;
+          const end = patch.endLine + lineOffset;
+          const deleteCount = end - start;
+          const deleted = lines.splice(start, deleteCount);
+          lineOffset -= deleted.length;
           linesAffected += deleted.length;
           content = lines.join("\n");
           patchesApplied++;
@@ -112,6 +141,7 @@ export async function patchFile(
 
         case "replace_first": {
           if (!patch.search || patch.replace === undefined) {
+            errors.push("replace_first: missing required fields (search, replace)");
             continue;
           }
           const index = content.indexOf(patch.search);
@@ -119,12 +149,15 @@ export async function patchFile(
             content = content.slice(0, index) + patch.replace + content.slice(index + patch.search.length);
             linesAffected++;
             patchesApplied++;
+          } else {
+            errors.push(`replace_first: search string not found: "${patch.search}"`);
           }
           break;
         }
 
         case "replace_all": {
           if (!patch.search || patch.replace === undefined) {
+            errors.push("replace_all: missing required fields (search, replace)");
             continue;
           }
           const regex = new RegExp(escapeRegex(patch.search), "g");
@@ -133,12 +166,15 @@ export async function patchFile(
             content = content.replace(regex, patch.replace);
             linesAffected += matches.length;
             patchesApplied++;
+          } else {
+            errors.push(`replace_all: search string not found: "${patch.search}"`);
           }
           break;
         }
 
         case "replace_regex": {
           if (!patch.pattern || patch.replace === undefined) {
+            errors.push("replace_regex: missing required fields (pattern, replace)");
             continue;
           }
           const regex = new RegExp(patch.pattern, patch.flags || "g");
@@ -147,31 +183,57 @@ export async function patchFile(
             content = content.replace(regex, patch.replace);
             linesAffected += matches.length;
             patchesApplied++;
+          } else {
+            errors.push(`replace_regex: pattern not matched: "${patch.pattern}"`);
           }
           break;
         }
       }
     }
 
+    // If no patches were applied, return error
+    if (patchesApplied === 0) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                success: false,
+                path,
+                patchesApplied: 0,
+                errors,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+        isError: true,
+      };
+    }
+
     // Write the patched content
     writeFileSync(resolved.fullPath, content, "utf-8");
     const newEtag = generateEtag(content);
+
+    const result: Record<string, unknown> = {
+      success: true,
+      path,
+      patchesApplied,
+      linesAffected,
+      etag: newEtag,
+    };
+
+    if (errors.length > 0) {
+      result.errors = errors;
+    }
 
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify(
-            {
-              success: true,
-              path,
-              patchesApplied,
-              linesAffected,
-              etag: newEtag,
-            },
-            null,
-            2
-          ),
+          text: JSON.stringify(result, null, 2),
         },
       ],
     };

@@ -1,8 +1,10 @@
-import { readFileSync } from "fs";
+import { existsSync, readFileSync, statSync } from "fs";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
 import { generateEtag } from "../utils/etag.js";
+import { getMediaType, getMimeType, MAX_MEDIA_SIZE } from "../utils/media.js";
+import { hasICloudStub } from "../utils/icloud.js";
 
 const MAX_LINES = 500;
 
@@ -12,6 +14,72 @@ export async function readFile(
 ): Promise<CallToolResult> {
   try {
     const resolved = resolvePath(path, config);
+
+    if (!existsSync(resolved.fullPath)) {
+      if (hasICloudStub(resolved.fullPath)) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: File exists in iCloud but has not been downloaded to this Mac yet. Open the file in Obsidian or Finder to trigger the download, then try again. Path: ${path}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      return {
+        content: [{ type: "text", text: `Error: File does not exist at ${path}` }],
+        isError: true,
+      };
+    }
+
+    const mediaType = getMediaType(resolved.fullPath);
+
+    if (mediaType === "image" || mediaType === "audio") {
+      const stats = statSync(resolved.fullPath);
+      if (stats.size > MAX_MEDIA_SIZE) {
+        const sizeMB = (stats.size / (1024 * 1024)).toFixed(1);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: ${mediaType === "image" ? "Image" : "Audio"} file too large (${sizeMB} MB). Maximum supported size is 10 MB.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const buffer = readFileSync(resolved.fullPath);
+      const etag = generateEtag(buffer);
+      const mimeType = getMimeType(resolved.fullPath)!;
+      const base64 = buffer.toString("base64");
+
+      return {
+        content: [
+          { type: mediaType, data: base64, mimeType },
+          {
+            type: "text",
+            text: JSON.stringify({ path, mimeType, size: stats.size, etag }, null, 2),
+          },
+        ],
+      };
+    }
+
+    if (mediaType === "video" || mediaType === "pdf") {
+      const label = mediaType === "video" ? "Video" : "PDF";
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: ${label} files cannot be returned through MCP. Use get_file_metadata for file info.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    // Text file — existing behavior
     const fullContent = readFileSync(resolved.fullPath, "utf-8");
     const etag = generateEtag(fullContent);
 

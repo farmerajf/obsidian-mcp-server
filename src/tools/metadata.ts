@@ -4,6 +4,8 @@ import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
 import { generateEtag } from "../utils/etag.js";
 import { parseSections } from "../utils/sections.js";
+import { getMediaType, getMimeType } from "../utils/media.js";
+import { hasICloudStub } from "../utils/icloud.js";
 
 export async function readFilePartial(
   path: string,
@@ -21,8 +23,41 @@ export async function readFilePartial(
     const resolved = resolvePath(path, config);
 
     if (!existsSync(resolved.fullPath)) {
+      if (hasICloudStub(resolved.fullPath)) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: File exists in iCloud but has not been downloaded to this Mac yet. Open the file in Obsidian or Finder to trigger the download, then try again. Path: ${path}`,
+            },
+          ],
+          isError: true,
+        };
+      }
       return {
         content: [{ type: "text", text: `Error: File does not exist at ${path}` }],
+        isError: true,
+      };
+    }
+
+    const mediaType = getMediaType(resolved.fullPath);
+    if (mediaType !== "text") {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                error: "Partial reading is not supported for binary files. Use read_file for full media content, or get_file_metadata for file information.",
+                path,
+                mediaType,
+                mimeType: getMimeType(resolved.fullPath),
+              },
+              null,
+              2
+            ),
+          },
+        ],
         isError: true,
       };
     }
@@ -87,6 +122,26 @@ export async function getFileMetadata(
     const resolved = resolvePath(path, config);
 
     if (!existsSync(resolved.fullPath)) {
+      if (hasICloudStub(resolved.fullPath)) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  path,
+                  exists: true,
+                  iCloudStatus: "pending_download",
+                  message:
+                    "File exists in iCloud but has not been downloaded to this Mac yet. Open the file in Obsidian or Finder to trigger the download.",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
       return {
         content: [
           {
@@ -117,50 +172,60 @@ export async function getFileMetadata(
     };
 
     if (isFile) {
-      const content = readFileSync(resolved.fullPath, "utf-8");
-      result.etag = generateEtag(content);
-      result.lineCount = content.split("\n").length;
+      const fileMediaType = getMediaType(resolved.fullPath);
 
-      // Check for frontmatter
-      result.hasFrontmatter = content.startsWith("---\n") || content.startsWith("---\r\n");
+      if (fileMediaType !== "text") {
+        // Binary file — return basic metadata only
+        const buffer = readFileSync(resolved.fullPath);
+        result.etag = generateEtag(buffer);
+        result.mediaType = fileMediaType;
+        result.mimeType = getMimeType(resolved.fullPath);
+      } else {
+        const content = readFileSync(resolved.fullPath, "utf-8");
+        result.etag = generateEtag(content);
+        result.lineCount = content.split("\n").length;
 
-      // Quick tag extraction from frontmatter and body
-      const tags = new Set<string>();
+        // Check for frontmatter
+        result.hasFrontmatter = content.startsWith("---\n") || content.startsWith("---\r\n");
 
-      // Frontmatter tags
-      const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-      if (frontmatterMatch) {
-        const fmContent = frontmatterMatch[1];
-        const tagsMatch = fmContent.match(/tags:\s*\[([^\]]*)\]/);
-        if (tagsMatch) {
-          tagsMatch[1].split(",").forEach((t) => tags.add(t.trim().replace(/['"]/g, "")));
+        // Quick tag extraction from frontmatter and body
+        const tags = new Set<string>();
+
+        // Frontmatter tags
+        const frontmatterMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        if (frontmatterMatch) {
+          const fmContent = frontmatterMatch[1];
+          const tagsMatch = fmContent.match(/tags:\s*\[([^\]]*)\]/);
+          if (tagsMatch) {
+            tagsMatch[1].split(",").forEach((t) => tags.add(t.trim().replace(/['"]/g, "")));
+          }
+          const tagsLineMatch = fmContent.match(/tags:\s*(.+)$/m);
+          if (tagsLineMatch && !tagsLineMatch[1].startsWith("[")) {
+            tagsLineMatch[1].split(/[,\s]+/).forEach((t) => {
+              if (t.trim()) tags.add(t.trim());
+            });
+          }
         }
-        const tagsLineMatch = fmContent.match(/tags:\s*(.+)$/m);
-        if (tagsLineMatch && !tagsLineMatch[1].startsWith("[")) {
-          tagsLineMatch[1].split(/[,\s]+/).forEach((t) => {
-            if (t.trim()) tags.add(t.trim());
-          });
+
+        // Inline tags
+        const inlineTags = content.match(/#[\w\-\/]+/g);
+        if (inlineTags) {
+          inlineTags.forEach((t) => tags.add(t.slice(1))); // Remove #
         }
+
+        if (tags.size > 0) {
+          result.tags = Array.from(tags);
+        }
+
+        // Count wikilinks
+        const wikilinks = content.match(/\[\[([^\]]+)\]\]/g);
+        result.linkCount = wikilinks ? wikilinks.length : 0;
+
+        // Section count and large file hint
+        const parsed = parseSections(content);
+        result.sectionCount = parsed.sections.length;
+        result.largeFile = (result.lineCount as number) > 200;
       }
-
-      // Inline tags
-      const inlineTags = content.match(/#[\w\-\/]+/g);
-      if (inlineTags) {
-        inlineTags.forEach((t) => tags.add(t.slice(1))); // Remove #
-      }
-
-      if (tags.size > 0) {
-        result.tags = Array.from(tags);
-      }
-
-      // Count wikilinks
-      const wikilinks = content.match(/\[\[([^\]]+)\]\]/g);
-      result.linkCount = wikilinks ? wikilinks.length : 0;
-
-      // Section count and large file hint
-      const parsed = parseSections(content);
-      result.sectionCount = parsed.sections.length;
-      result.largeFile = (result.lineCount as number) > 200;
     }
 
     return {

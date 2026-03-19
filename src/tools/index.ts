@@ -66,7 +66,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "read_file",
-    "Read contents of a file. Returns content and ETag for conflict detection. Files over 500 lines are automatically truncated — use get_sections + read_section for targeted reading of large files.",
+    "Read contents of a file. For text files, returns content and ETag (truncated at 500 lines — use get_sections + read_section for large files). For image files (png, jpg, gif, webp, svg, bmp), returns a viewable image block. For audio files (mp3, wav, ogg, flac, m4a), returns an audio block.",
     {
       path: z.string().optional().describe("File path (e.g., '/notes/todo.md')"),
       url: urlParam,
@@ -161,7 +161,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "patch_file",
-    "Apply surgical edits without sending entire file content.",
+    "Apply surgical edits without sending entire file content. insert_after accepts either a 'line' number or a 'search' string to locate the insertion point. Line-number patches (replace_lines, delete_lines, insert_after with line) use the original file's line numbers even when batching multiple patches.",
     {
       path: z.string().optional().describe("File path"),
       url: urlParam,
@@ -192,7 +192,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "read_file_partial",
-    "Read only a portion of a file by lines or bytes.",
+    "Read only a portion of a text file by lines or bytes. Not supported for binary media files.",
     {
       path: z.string().optional().describe("File path"),
       url: urlParam,
@@ -207,7 +207,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "get_file_metadata",
-    "Get file info without reading content: size, dates, tags, link count.",
+    "Get file info without reading content: size, dates, tags, link count. Works for all file types including images and other media.",
     {
       path: z.string().optional().describe("File path"),
       url: urlParam,
@@ -484,7 +484,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "batch_read",
-    "Read multiple files in a single request.",
+    "Read multiple files in a single request. Supports text and media files — media files return base64-encoded content with mediaType/mimeType fields.",
     {
       paths: z.array(z.string()).describe("Array of file paths"),
       includeMetadata: z.boolean().default(false),

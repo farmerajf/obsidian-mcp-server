@@ -196,6 +196,11 @@ See also: [[project-a]]
 
     // Attachments
     "/vault/attachments/attachment.png": "fake-image-data",
+    "/vault/attachments/photo.jpg": "fake-jpeg-data",
+    "/vault/attachments/song.mp3": "fake-audio-data",
+    "/vault/attachments/diagram.svg": "<svg><circle r='10'/></svg>",
+    "/vault/attachments/movie.mp4": "fake-video-data",
+    "/vault/attachments/document.pdf": "fake-pdf-data",
 
     // No frontmatter file
     "/vault/plain.md": `# Plain File

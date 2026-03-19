@@ -4,6 +4,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
 import { generateEtag } from "../utils/etag.js";
+import { getMediaType, getMimeType, MAX_MEDIA_SIZE } from "../utils/media.js";
 
 interface ReadResult {
   path: string;
@@ -12,6 +13,8 @@ interface ReadResult {
   etag?: string;
   error?: string;
   metadata?: { size: number; modified: string };
+  mediaType?: string;
+  mimeType?: string;
 }
 
 export async function batchRead(
@@ -44,26 +47,68 @@ export async function batchRead(
         continue;
       }
 
-      const content = readFileSync(resolved.fullPath, "utf-8");
-      const etag = generateEtag(content);
+      const fileMediaType = getMediaType(resolved.fullPath);
 
-      const result: ReadResult = {
-        path,
-        success: true,
-        content,
-        etag,
-      };
-
-      if (includeMetadata) {
+      if (fileMediaType === "image" || fileMediaType === "audio") {
         const stats = statSync(resolved.fullPath);
-        result.metadata = {
-          size: stats.size,
-          modified: stats.mtime.toISOString(),
+        if (stats.size > MAX_MEDIA_SIZE) {
+          results.push({
+            path,
+            success: false,
+            mediaType: fileMediaType,
+            mimeType: getMimeType(resolved.fullPath) ?? undefined,
+            error: `File too large (${(stats.size / (1024 * 1024)).toFixed(1)} MB). Use read_file individually for files up to 10 MB.`,
+          });
+          failureCount++;
+          continue;
+        }
+        const buffer = readFileSync(resolved.fullPath);
+        const etag = generateEtag(buffer);
+        const result: ReadResult = {
+          path,
+          success: true,
+          content: buffer.toString("base64"),
+          etag,
+          mediaType: fileMediaType,
+          mimeType: getMimeType(resolved.fullPath) ?? undefined,
         };
-      }
+        if (includeMetadata) {
+          result.metadata = { size: stats.size, modified: stats.mtime.toISOString() };
+        }
+        results.push(result);
+        successCount++;
+      } else if (fileMediaType === "video" || fileMediaType === "pdf") {
+        const stats = statSync(resolved.fullPath);
+        results.push({
+          path,
+          success: true,
+          mediaType: fileMediaType,
+          mimeType: getMimeType(resolved.fullPath) ?? undefined,
+          ...(includeMetadata ? { metadata: { size: stats.size, modified: stats.mtime.toISOString() } } : {}),
+        });
+        successCount++;
+      } else {
+        const content = readFileSync(resolved.fullPath, "utf-8");
+        const etag = generateEtag(content);
 
-      results.push(result);
-      successCount++;
+        const result: ReadResult = {
+          path,
+          success: true,
+          content,
+          etag,
+        };
+
+        if (includeMetadata) {
+          const stats = statSync(resolved.fullPath);
+          result.metadata = {
+            size: stats.size,
+            modified: stats.mtime.toISOString(),
+          };
+        }
+
+        results.push(result);
+        successCount++;
+      }
     } catch (error) {
       if (failFast) {
         const message = error instanceof Error ? error.message : String(error);
