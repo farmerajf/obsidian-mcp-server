@@ -6,6 +6,8 @@ import { resolvePath } from "../utils/paths.js";
 import { generateEtag } from "../utils/etag.js";
 import { getMediaType, getMimeType, MAX_MEDIA_SIZE } from "../utils/media.js";
 
+const MAX_LINES = 500;
+
 interface ReadResult {
   path: string;
   success: boolean;
@@ -15,6 +17,9 @@ interface ReadResult {
   metadata?: { size: number; modified: string };
   mediaType?: string;
   mimeType?: string;
+  truncated?: boolean;
+  linesReturned?: number;
+  totalLines?: number;
 }
 
 export async function batchRead(
@@ -116,15 +121,26 @@ export async function batchRead(
         });
         successCount++;
       } else {
-        const content = readFileSync(resolved.fullPath, "utf-8");
-        const etag = generateEtag(content);
+        const fullContent = readFileSync(resolved.fullPath, "utf-8");
+        const etag = generateEtag(fullContent);
+
+        const lines = fullContent.split("\n");
+        const totalLines = lines.length;
 
         const result: ReadResult = {
           path,
           success: true,
-          content,
           etag,
         };
+
+        if (totalLines > MAX_LINES) {
+          result.content = lines.slice(0, MAX_LINES).join("\n");
+          result.truncated = true;
+          result.linesReturned = MAX_LINES;
+          result.totalLines = totalLines;
+        } else {
+          result.content = fullContent;
+        }
 
         if (includeMetadata) {
           const stats = statSync(resolved.fullPath);

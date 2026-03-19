@@ -67,6 +67,37 @@ describe("batchRead", () => {
       expect(typeof r.etag).toBe("string");
     }
   });
+
+  it("truncates large text files at 500 lines", async () => {
+    // Create a file with 600 lines
+    const lines = Array.from({ length: 600 }, (_, i) => `Line ${i + 1}`);
+    await createFile("/vault/large-batch.md", lines.join("\n"), config);
+
+    const result = await batchRead(["/vault/large-batch.md"], config);
+    const data = getTestResult(result) as {
+      results: {
+        content: string;
+        truncated: boolean;
+        linesReturned: number;
+        totalLines: number;
+      }[];
+    };
+
+    expect(data.results[0].truncated).toBe(true);
+    expect(data.results[0].linesReturned).toBe(500);
+    expect(data.results[0].totalLines).toBe(600);
+    expect(data.results[0].content.split("\n")).toHaveLength(500);
+  });
+
+  it("does not truncate small text files", async () => {
+    const result = await batchRead(["/vault/index.md"], config);
+    const data = getTestResult(result) as {
+      results: { content: string; truncated?: boolean }[];
+    };
+
+    expect(data.results[0].truncated).toBeUndefined();
+    expect(data.results[0].content).toContain("# Welcome");
+  });
 });
 
 describe("batchWrite", () => {

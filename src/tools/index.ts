@@ -35,6 +35,9 @@ import { searchByDate } from "./dates.js";
 // Phase 4-5: Batch operations
 import { batchRead, batchWrite } from "./batch.js";
 
+// Binary file operations
+import { createBinaryFile, attachToNote } from "./binary.js";
+
 // Section-aware reading
 import { getSections, readSection } from "./sections.js";
 
@@ -161,7 +164,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "patch_file",
-    "Apply surgical edits without sending entire file content. insert_after accepts either a 'line' number or a 'search' string to locate the insertion point. Line-number patches (replace_lines, delete_lines, insert_after with line) use the original file's line numbers even when batching multiple patches.",
+    "Apply surgical edits without sending entire file content. For appending content to end of file, prefer append_file. For replacing large sections or rewriting most of a file, prefer update_file. Use patch_file for small, targeted edits where the line number or search string is known. insert_after accepts either a 'line' number or a 'search' string to locate the insertion point. Line-number patches (replace_lines, delete_lines, insert_after with line) use the original file's line numbers even when batching multiple patches.",
     {
       path: z.string().optional().describe("File path"),
       url: urlParam,
@@ -496,7 +499,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "batch_write",
-    "Write/update multiple files atomically.",
+    'Write/update multiple files atomically. Each operation requires a "type" field: { type: "create", path, content }, { type: "update", path, content, expectedEtag? }, { type: "append", path, content }, or { type: "delete", path }.',
     {
       operations: z.array(
         z.union([
@@ -514,6 +517,39 @@ export function registerTools(server: McpServer, config: Config): void {
       atomic: z.boolean().default(true).describe("All-or-nothing"),
     },
     async ({ operations, atomic }) => batchWrite(operations, config, atomic)
+  );
+
+  // ========================================
+  // BINARY FILE OPERATIONS
+  // ========================================
+
+  server.tool(
+    "create_binary_file",
+    "Create a binary file (image, PDF, etc.) from base64-encoded content. Fails if file already exists.",
+    {
+      path: z.string().optional().describe("Destination file path (e.g., '/vault/Attachments/receipt.pdf')"),
+      url: urlParam,
+      content: z.string().describe("Base64-encoded file content"),
+    },
+    async ({ path, url, content }) =>
+      createBinaryFile(resolvePathOrUrl(path, url, config), content, config)
+  );
+
+  server.tool(
+    "attach_to_note",
+    "Create a binary file and insert an embed link (![[filename]]) into a note. Places the attachment in the same directory as the note.",
+    {
+      notePath: z.string().optional().describe("Path of the note to attach to"),
+      noteUrl: z.string().optional().describe("Obsidian URL of the note — alternative to notePath"),
+      fileName: z.string().describe("Desired filename for the attachment (e.g., 'receipt.pdf')"),
+      content: z.string().describe("Base64-encoded file content"),
+      position: z
+        .string()
+        .default("end")
+        .describe("Where to insert embed: 'end', 'start', or 'after:Heading Text'"),
+    },
+    async ({ notePath, noteUrl, fileName, content, position }) =>
+      attachToNote(resolvePathOrUrl(notePath, noteUrl, config), fileName, content, config, position)
   );
 
   // ========================================
