@@ -22,7 +22,7 @@ function buildInstructions(config: Config): string {
     "Before editing a file, read it first to understand its structure. Use update_frontmatter for metadata changes instead of raw text edits — it preserves existing frontmatter structure and uses merge semantics.",
     "Always pass expectedEtag when updating files to avoid overwriting concurrent changes made in the Obsidian app. Prefer soft delete (default) over permanent delete.",
     "For large files, read_file truncates at 500 lines by default. When a file is truncated or get_file_metadata shows largeFile: true, use get_sections to see the heading structure first, then read_section to read specific sections. This saves context window budget. Prefer read_section over read_file with maxLines: 0.",
-    "For image and audio files, read_file returns native content blocks so you can view images and hear audio directly. Video and PDF files are not supported for content reading — use get_file_metadata for their info.",
+    "For image and audio files, read_file returns native content blocks so you can view images and hear audio directly. For PDF files, read_file returns the document as a readable resource. Video files are not supported for content reading — use get_file_metadata for their info.",
   ].join(" ");
 }
 

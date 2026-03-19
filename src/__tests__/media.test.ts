@@ -61,12 +61,27 @@ describe("readFile with media files", () => {
     expect(text).toContain("cannot be returned");
   });
 
-  it("returns error for PDF files", async () => {
+  it("returns resource content block for PDF files", async () => {
     const result = await readFile("/vault/attachments/document.pdf", config);
-    expect(result.isError).toBe(true);
-    const text = (result.content[0] as { text: string }).text;
-    expect(text).toContain("PDF");
-    expect(text).toContain("cannot be returned");
+    expect(result.isError).toBeUndefined();
+    expect(result.content).toHaveLength(2);
+
+    const resourceBlock = result.content[0] as {
+      type: string;
+      resource: { uri: string; mimeType: string; blob: string };
+    };
+    expect(resourceBlock.type).toBe("resource");
+    expect(resourceBlock.resource.mimeType).toBe("application/pdf");
+    expect(resourceBlock.resource.blob).toBe(Buffer.from("fake-pdf-data").toString("base64"));
+    expect(resourceBlock.resource.uri).toContain("document.pdf");
+
+    const metaBlock = result.content[1] as { type: string; text: string };
+    expect(metaBlock.type).toBe("text");
+    const meta = JSON.parse(metaBlock.text);
+    expect(meta.path).toBe("/vault/attachments/document.pdf");
+    expect(meta.mimeType).toBe("application/pdf");
+    expect(meta.etag).toBeDefined();
+    expect(meta.size).toBeDefined();
   });
 
   it("still returns text for .md files", async () => {
@@ -110,6 +125,16 @@ describe("batchRead with media files", () => {
     expect(data.results[0].success).toBe(true);
     expect(data.results[0].mediaType).toBe("video");
     expect(data.results[0].content).toBeUndefined();
+  });
+
+  it("handles PDF files in batch with base64 content", async () => {
+    const result = await batchRead(["/vault/attachments/document.pdf"], config);
+    const data = JSON.parse((result.content[0] as { text: string }).text);
+    expect(data.successCount).toBe(1);
+    expect(data.results[0].success).toBe(true);
+    expect(data.results[0].mediaType).toBe("pdf");
+    expect(data.results[0].mimeType).toBe("application/pdf");
+    expect(data.results[0].content).toBe(Buffer.from("fake-pdf-data").toString("base64"));
   });
 });
 

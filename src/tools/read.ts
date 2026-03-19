@@ -66,13 +66,50 @@ export async function readFile(
       };
     }
 
-    if (mediaType === "video" || mediaType === "pdf") {
-      const label = mediaType === "video" ? "Video" : "PDF";
+    if (mediaType === "pdf") {
+      const stats = statSync(resolved.fullPath);
+      if (stats.size > MAX_MEDIA_SIZE) {
+        const sizeMB = (stats.size / (1024 * 1024)).toFixed(1);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: PDF file too large (${sizeMB} MB). Maximum supported size is 10 MB.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const buffer = readFileSync(resolved.fullPath);
+      const etag = generateEtag(buffer);
+      const mimeType = getMimeType(resolved.fullPath)!;
+      const base64 = buffer.toString("base64");
+
+      return {
+        content: [
+          {
+            type: "resource",
+            resource: {
+              uri: `file://${resolved.fullPath}`,
+              mimeType,
+              blob: base64,
+            },
+          },
+          {
+            type: "text",
+            text: JSON.stringify({ path, mimeType, size: stats.size, etag }, null, 2),
+          },
+        ],
+      };
+    }
+
+    if (mediaType === "video") {
       return {
         content: [
           {
             type: "text",
-            text: `Error: ${label} files cannot be returned through MCP. Use get_file_metadata for file info.`,
+            text: `Error: Video files cannot be returned through MCP. Use get_file_metadata for file info.`,
           },
         ],
         isError: true,

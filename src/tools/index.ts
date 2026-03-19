@@ -66,7 +66,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "read_file",
-    "Read contents of a file. For text files, returns content and ETag (truncated at 500 lines — use get_sections + read_section for large files). For image files (png, jpg, gif, webp, svg, bmp), returns a viewable image block. For audio files (mp3, wav, ogg, flac, m4a), returns an audio block.",
+    "Read contents of a file. For text files, returns content and ETag (truncated at 500 lines — use get_sections + read_section for large files). For image files (png, jpg, gif, webp, svg, bmp), returns a viewable image block. For audio files (mp3, wav, ogg, flac, m4a), returns an audio block. For PDF files, returns the document as a readable resource.",
     {
       path: z.string().optional().describe("File path (e.g., '/notes/todo.md')"),
       url: urlParam,
@@ -484,7 +484,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "batch_read",
-    "Read multiple files in a single request. Supports text and media files — media files return base64-encoded content with mediaType/mimeType fields.",
+    "Read multiple files in a single request. Supports text, image, audio, and PDF files — binary files return base64-encoded content with mediaType/mimeType fields.",
     {
       paths: z.array(z.string()).describe("Array of file paths"),
       includeMetadata: z.boolean().default(false),

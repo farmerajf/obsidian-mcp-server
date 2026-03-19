@@ -77,7 +77,35 @@ export async function batchRead(
         }
         results.push(result);
         successCount++;
-      } else if (fileMediaType === "video" || fileMediaType === "pdf") {
+      } else if (fileMediaType === "pdf") {
+        const stats = statSync(resolved.fullPath);
+        if (stats.size > MAX_MEDIA_SIZE) {
+          results.push({
+            path,
+            success: false,
+            mediaType: fileMediaType,
+            mimeType: getMimeType(resolved.fullPath) ?? undefined,
+            error: `File too large (${(stats.size / (1024 * 1024)).toFixed(1)} MB). Maximum supported size is 10 MB.`,
+          });
+          failureCount++;
+          continue;
+        }
+        const buffer = readFileSync(resolved.fullPath);
+        const etag = generateEtag(buffer);
+        const result: ReadResult = {
+          path,
+          success: true,
+          content: buffer.toString("base64"),
+          etag,
+          mediaType: fileMediaType,
+          mimeType: getMimeType(resolved.fullPath) ?? undefined,
+        };
+        if (includeMetadata) {
+          result.metadata = { size: stats.size, modified: stats.mtime.toISOString() };
+        }
+        results.push(result);
+        successCount++;
+      } else if (fileMediaType === "video") {
         const stats = statSync(resolved.fullPath);
         results.push({
           path,
