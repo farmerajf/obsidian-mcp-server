@@ -38,6 +38,9 @@ import { batchRead, batchWrite } from "./batch.js";
 // Binary file operations
 import { createBinaryFile, attachToNote } from "./binary.js";
 
+// Bases (database views)
+import { listBases, queryBase, createBaseItem, getBaseSchema } from "./bases.js";
+
 // Section-aware reading
 import { getSections, readSection } from "./sections.js";
 
@@ -550,6 +553,53 @@ export function registerTools(server: McpServer, config: Config): void {
     },
     async ({ notePath, noteUrl, fileName, content, position }) =>
       attachToNote(resolvePathOrUrl(notePath, noteUrl, config), fileName, content, config, position)
+  );
+
+  // ========================================
+  // BASES (DATABASE VIEWS)
+  // ========================================
+
+  server.tool(
+    "list_bases",
+    "List all Obsidian Bases (.base files) across vaults with their filter config, item counts, and view names.",
+    {},
+    async () => listBases(config)
+  );
+
+  server.tool(
+    "query_base",
+    "Query items in an Obsidian Base. Returns all matching items with their frontmatter properties, sorted according to the view configuration. Use list_bases first to discover available bases.",
+    {
+      path: z.string().optional().describe("Path to the .base file"),
+      url: urlParam,
+      view: z.string().optional().describe("View name to use for sorting/filtering (defaults to first view)"),
+    },
+    async ({ path, url, view }) =>
+      queryBase(resolvePathOrUrl(path, url, config), config, view)
+  );
+
+  server.tool(
+    "create_base_item",
+    "Create a new item (markdown file with frontmatter) in an Obsidian Base. Automatically places the file in the correct folder. Use get_base_schema first to discover expected properties.",
+    {
+      basePath: z.string().optional().describe("Path to the .base file"),
+      baseUrl: z.string().optional().describe("Obsidian URL of the .base file — alternative to basePath"),
+      name: z.string().describe("Name for the new item (becomes the filename)"),
+      properties: z.record(z.string(), z.unknown()).describe("Frontmatter properties for the item"),
+    },
+    async ({ basePath, baseUrl, name, properties }) =>
+      createBaseItem(resolvePathOrUrl(basePath, baseUrl, config), name, properties, config)
+  );
+
+  server.tool(
+    "get_base_schema",
+    "Inspect an Obsidian Base's property schema. Analyzes existing items to return property names, inferred types, usage frequency, and example values. Helps you create items with correct property formats.",
+    {
+      path: z.string().optional().describe("Path to the .base file"),
+      url: urlParam,
+    },
+    async ({ path, url }) =>
+      getBaseSchema(resolvePathOrUrl(path, url, config), config)
   );
 
   // ========================================

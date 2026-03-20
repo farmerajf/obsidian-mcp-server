@@ -24,10 +24,12 @@
     "@modelcontextprotocol/sdk": "^1.25.1",
     "express": "^5.2.1",
     "glob": "^13.0.0",
+    "js-yaml": "^4.1.1",
     "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.0.3",
     "@vitest/coverage-v8": "^4.0.18",
     "memfs": "^4.51.1",
