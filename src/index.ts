@@ -6,6 +6,8 @@ import { loadConfig, type Config } from "./config.js";
 import { registerTools } from "./tools/index.js";
 
 const config = loadConfig(process.env.CONFIG_PATH);
+console.log(`[server] Config loaded (transport: ${config.transport})`);
+
 
 function buildInstructions(config: Config): string {
   const vaultNames = Object.keys(config.paths);
@@ -56,7 +58,7 @@ async function startStdioServer(config: Config): Promise<void> {
   const server = createMcpServer(config);
   const transport = new StdioServerTransport();
 
-  console.error("Starting Obsidian MCP Server in stdio mode...");
+  console.log("[server] Starting in stdio mode");
   console.error(`Configured paths:`);
   for (const [name, path] of Object.entries(config.paths)) {
     console.error(`  ${name}: ${path}`);
@@ -88,16 +90,21 @@ function startSseServer(config: Config): void {
   ): void {
     const providedKey = req.params.apiKey;
     if (providedKey !== config.apiKey) {
+      console.warn(`[http] Unauthorized request from ${req.ip}: invalid API key`);
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
     next();
   }
 
+  // Request logger
+  app.use((req, _res, next) => {
+    console.log(`[http] --> ${req.method} ${req.path} from ${req.ip}`);
+    next();
+  });
+
   // SSE endpoint - establishes the SSE connection
   app.get("/:apiKey/sse", validateApiKey, async (req: Request, res: Response) => {
-    console.log("New SSE connection");
-
     // Create SSE transport - messages endpoint includes basePath for reverse proxy support
     // The client needs the full external path to POST messages back
     const messagesPath = basePath
@@ -105,11 +112,12 @@ function startSseServer(config: Config): void {
       : `/${req.params.apiKey}/messages`;
     const transport = new SSEServerTransport(messagesPath, res);
     transports.set(transport.sessionId, transport);
+    console.log(`[http] SSE session created: ${transport.sessionId} (active: ${transports.size})`);
 
     // Clean up on close
     transport.onclose = () => {
-      console.log(`SSE connection closed: ${transport.sessionId}`);
       transports.delete(transport.sessionId);
+      console.log(`[http] SSE session closed: ${transport.sessionId} (active: ${transports.size})`);
     };
 
     // Create a new MCP server instance for this connection
@@ -126,12 +134,14 @@ function startSseServer(config: Config): void {
     async (req: Request, res: Response) => {
       const sessionId = req.query.sessionId as string;
       if (!sessionId) {
+        console.warn("[http] POST /messages missing sessionId");
         res.status(400).json({ error: "Missing sessionId query parameter" });
         return;
       }
 
       const transport = transports.get(sessionId);
       if (!transport) {
+        console.warn(`[http] POST /messages unknown session: ${sessionId}`);
         res.status(404).json({ error: "Session not found" });
         return;
       }
@@ -147,20 +157,27 @@ function startSseServer(config: Config): void {
 
   // Start server
   const server = app.listen(config.port, () => {
-    console.log(`Remote Obsidian MCP Server running on port ${config.port}`);
-    console.log(`SSE endpoint: http://localhost:${config.port}/{apiKey}/sse`);
+    console.log(`[server] Listening on port ${config.port}`);
+    console.log(`[server] SSE endpoint: http://localhost:${config.port}/{apiKey}/sse`);
     if (basePath) {
-      console.log(`External base path for clients: ${basePath}`);
+      console.log(`[server] External base path: ${basePath}`);
     }
-    console.log(`Configured paths:`);
     for (const [name, path] of Object.entries(config.paths)) {
-      console.log(`  ${name}: ${path}`);
+      console.log(`[server] Vault "${name}": ${path}`);
     }
+  });
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`[server] Port ${config.port} is already in use`);
+    } else {
+      console.error(`[server] Failed to start: ${err.message}`);
+    }
+    process.exit(1);
   });
 
   // Graceful shutdown
   process.on("SIGINT", async () => {
-    console.log("\nShutting down...");
+    console.log(`[server] Shutting down (SIGINT), closing ${transports.size} session(s)...`);
     for (const transport of transports.values()) {
       await transport.close();
     }
