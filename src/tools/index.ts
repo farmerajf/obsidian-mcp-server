@@ -82,7 +82,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "create_file",
-    "Create a new file. Fails if file already exists.",
+    "Create a new file. Fails if file already exists. Do not use for Base items — if the target path is inside a Base items/ folder, use create_base_item instead (it resolves the correct folder from the .base file automatically).",
     {
       path: z.string().optional().describe("File path"),
       url: urlParam,
@@ -189,6 +189,7 @@ export function registerTools(server: McpServer, config: Config): void {
           replace: z.string().optional(),
           pattern: z.string().optional(),
           flags: z.string().optional(),
+          expectedContent: z.string().optional().describe("For replace_lines: verify target lines contain this string before replacing. Rejects patch with error on mismatch."),
         })
       ),
       expectedEtag: z.string().optional(),
@@ -580,7 +581,7 @@ export function registerTools(server: McpServer, config: Config): void {
 
   server.tool(
     "create_base_item",
-    "Create a new item (markdown file with frontmatter) in an Obsidian Base. Automatically places the file in the correct folder. Use get_base_schema first to discover expected properties.",
+    "Create a new item (markdown file with frontmatter) in an Obsidian Base. Always use this (not create_file) when creating items for an Obsidian Base — it automatically resolves the correct Base items folder from the .base file. Use get_base_schema first to discover expected properties.",
     {
       basePath: z.string().optional().describe("Path to the .base file"),
       baseUrl: z.string().optional().describe("Obsidian URL of the .base file — alternative to basePath"),

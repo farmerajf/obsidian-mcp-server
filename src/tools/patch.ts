@@ -20,6 +20,7 @@ interface PatchOperation {
   replace?: string;
   pattern?: string;
   flags?: string;
+  expectedContent?: string;
 }
 
 export async function patchFile(
@@ -66,6 +67,7 @@ export async function patchFile(
     let patchesApplied = 0;
     let linesAffected = 0;
     const errors: string[] = [];
+    const replacedContents: { patch: number; replaced: string }[] = [];
     // Track cumulative line offset so that line-number patches in a batch
     // reference the original file's line numbers rather than the shifted ones.
     let lineOffset = 0;
@@ -82,6 +84,19 @@ export async function patchFile(
           const start = patch.startLine - 1 + lineOffset;
           const end = patch.endLine + lineOffset;
           const deleteCount = end - start;
+          const existingContent = lines.slice(start, end).join("\n");
+
+          if (patch.expectedContent !== undefined) {
+            if (!existingContent.includes(patch.expectedContent)) {
+              const preview = existingContent.length > 80 ? existingContent.slice(0, 80) + "…" : existingContent;
+              errors.push(`replace_lines: expectedContent mismatch at lines ${patch.startLine}-${patch.endLine} (expected "${patch.expectedContent}", found "${preview}")`);
+              continue;
+            }
+          }
+
+          const patchIndex = patches.indexOf(patch);
+          replacedContents.push({ patch: patchIndex, replaced: existingContent });
+
           const newLines = patch.content.split("\n");
           lines.splice(start, deleteCount, ...newLines);
           lineOffset += newLines.length - deleteCount;
@@ -100,10 +115,27 @@ export async function patchFile(
           let insertIndex: number;
 
           if (patch.search !== undefined) {
-            // String-based: find line containing the search text (literal match)
-            const lineIdx = lines.findIndex(line => line.includes(patch.search!));
+            // Determine where frontmatter ends so we skip matches inside it
+            let searchStartIdx = 0;
+            if (lines[0] === "---") {
+              for (let i = 1; i < lines.length; i++) {
+                if (lines[i] === "---") {
+                  searchStartIdx = i + 1;
+                  break;
+                }
+              }
+            }
+
+            // String-based: find line containing the search text, skipping frontmatter
+            const lineIdx = lines.findIndex((line, idx) => idx >= searchStartIdx && line.includes(patch.search!));
             if (lineIdx === -1) {
-              errors.push(`insert_after: search string not found: "${patch.search}"`);
+              // Check if there was a match inside frontmatter to give a better error
+              const fmMatch = searchStartIdx > 0 && lines.slice(0, searchStartIdx).some(line => line.includes(patch.search!));
+              if (fmMatch) {
+                errors.push(`insert_after: search string matched only inside frontmatter — use a match point in the document body instead: "${patch.search}"`);
+              } else {
+                errors.push(`insert_after: search string not found: "${patch.search}"`);
+              }
               continue;
             }
             insertIndex = lineIdx + 1;
@@ -224,6 +256,10 @@ export async function patchFile(
       linesAffected,
       etag: newEtag,
     };
+
+    if (replacedContents.length > 0) {
+      result.replaced = replacedContents;
+    }
 
     if (errors.length > 0) {
       result.errors = errors;

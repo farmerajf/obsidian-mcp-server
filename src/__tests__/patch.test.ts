@@ -271,6 +271,120 @@ describe("patchFile", () => {
     expect(readData.content).toBe("Line 1\nLine 2\nNew A\nNew B\nNew C\nNew D\nLine 4\nLine 5");
   });
 
+  // === Bug fix: expectedContent validation for replace_lines ===
+
+  it("rejects replace_lines when expectedContent does not match", async () => {
+    await createFile("/vault/expected-mismatch.md", "# Title\nOld content\nMore stuff", config);
+
+    const result = await patchFile(
+      "/vault/expected-mismatch.md",
+      [{ type: "replace_lines", startLine: 2, endLine: 2, content: "New content", expectedContent: "Wrong content" }],
+      config
+    );
+    const data = getTestResult(result) as { success: boolean; errors: string[] };
+
+    expect(result.isError).toBe(true);
+    expect(data.success).toBe(false);
+    expect(data.errors[0]).toContain("expectedContent mismatch");
+  });
+
+  it("applies replace_lines when expectedContent matches", async () => {
+    await createFile("/vault/expected-match.md", "# Title\nOld content\nMore stuff", config);
+
+    const result = await patchFile(
+      "/vault/expected-match.md",
+      [{ type: "replace_lines", startLine: 2, endLine: 2, content: "New content", expectedContent: "Old content" }],
+      config
+    );
+    const data = getTestResult(result) as { success: boolean; patchesApplied: number };
+
+    expect(data.success).toBe(true);
+    expect(data.patchesApplied).toBe(1);
+
+    const readResult = await readFile("/vault/expected-match.md", config);
+    const readData = getTestResult(readResult) as { content: string };
+    expect(readData.content).toBe("# Title\nNew content\nMore stuff");
+  });
+
+  it("returns replaced content in response for replace_lines", async () => {
+    await createFile("/vault/replaced-content.md", "Line 1\nLine 2\nLine 3", config);
+
+    const result = await patchFile(
+      "/vault/replaced-content.md",
+      [{ type: "replace_lines", startLine: 2, endLine: 2, content: "New Line 2" }],
+      config
+    );
+    const data = getTestResult(result) as { success: boolean; replaced: { patch: number; replaced: string }[] };
+
+    expect(data.success).toBe(true);
+    expect(data.replaced).toHaveLength(1);
+    expect(data.replaced[0].patch).toBe(0);
+    expect(data.replaced[0].replaced).toBe("Line 2");
+  });
+
+  // === Bug fix: insert_after should skip frontmatter matches ===
+
+  it("insert_after skips matches inside frontmatter", async () => {
+    await createFile(
+      "/vault/fm-skip.md",
+      "---\nCategory: Improvement\n---\n# Title\nCategory: Improvement\nBody text",
+      config
+    );
+
+    const result = await patchFile(
+      "/vault/fm-skip.md",
+      [{ type: "insert_after", search: "Category: Improvement", content: "Inserted line" }],
+      config
+    );
+    const data = getTestResult(result) as { success: boolean; patchesApplied: number };
+
+    expect(data.success).toBe(true);
+    expect(data.patchesApplied).toBe(1);
+
+    const readResult = await readFile("/vault/fm-skip.md", config);
+    const readData = getTestResult(readResult) as { content: string };
+    // Should insert after the body match (line 5), not the frontmatter match (line 2)
+    expect(readData.content).toBe(
+      "---\nCategory: Improvement\n---\n# Title\nCategory: Improvement\nInserted line\nBody text"
+    );
+  });
+
+  it("insert_after errors when search only matches inside frontmatter", async () => {
+    await createFile(
+      "/vault/fm-only.md",
+      "---\nCategory: Bug\n---\n# Title\nBody text",
+      config
+    );
+
+    const result = await patchFile(
+      "/vault/fm-only.md",
+      [{ type: "insert_after", search: "Category: Bug", content: "Inserted line" }],
+      config
+    );
+    const data = getTestResult(result) as { success: boolean; errors: string[] };
+
+    expect(result.isError).toBe(true);
+    expect(data.success).toBe(false);
+    expect(data.errors[0]).toContain("matched only inside frontmatter");
+  });
+
+  it("insert_after works normally on files without frontmatter", async () => {
+    await createFile("/vault/no-fm.md", "# Title\nSome content\nMore content", config);
+
+    const result = await patchFile(
+      "/vault/no-fm.md",
+      [{ type: "insert_after", search: "Some content", content: "Inserted" }],
+      config
+    );
+    const data = getTestResult(result) as { success: boolean };
+
+    expect(data.success).toBe(true);
+
+    const readResult = await readFile("/vault/no-fm.md", config);
+    const readData = getTestResult(readResult) as { content: string };
+    expect(readData.content).toBe("# Title\nSome content\nInserted\nMore content");
+  });
+
   it("reports partial success with errors when some patches fail", async () => {
     await createFile("/vault/partial.md", "AAA\nBBB\nCCC", config);
 
