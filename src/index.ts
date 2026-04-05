@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
 import express, { Request, Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig, type Config } from "./config.js";
 import { registerTools } from "./tools/index.js";
@@ -50,7 +51,7 @@ function createMcpServer(config: Config): McpServer {
 if (config.transport === "stdio") {
   startStdioServer(config);
 } else {
-  startSseServer(config);
+  startHttpServer(config);
 }
 
 // Stdio transport for local use (Claude Desktop, etc.)
@@ -67,22 +68,17 @@ async function startStdioServer(config: Config): Promise<void> {
   await server.connect(transport);
 }
 
-// SSE transport for remote use (Claude Web, etc.)
-function startSseServer(config: Config): void {
-  // Store active transports by session ID
-  const transports = new Map<string, SSEServerTransport>();
+// Streamable HTTP transport for remote use (Claude Web, etc.)
+function startHttpServer(config: Config): void {
+  const transports = new Map<string, StreamableHTTPServerTransport>();
 
-  // Create Express app
   const app = express();
+  app.use((req, _res, next) => {
+    console.log(`[http] --> ${req.method} ${req.path} from ${req.ip}`);
+    next();
+  });
   app.use(express.json());
 
-  // basePath is used for client callback URLs when behind a reverse proxy
-  // that strips the path prefix (e.g., Tailscale Funnel with --set-path)
-  // The proxy strips the prefix on incoming requests, but clients need
-  // the full path to POST messages back correctly.
-  const basePath = config.basePath || "";
-
-  // API key validation middleware - key is in the URL path
   function validateApiKey(
     req: Request,
     res: Response,
@@ -97,68 +93,95 @@ function startSseServer(config: Config): void {
     next();
   }
 
-  // Request logger
-  app.use((req, _res, next) => {
-    console.log(`[http] --> ${req.method} ${req.path} from ${req.ip}`);
-    next();
-  });
-
-  // SSE endpoint - establishes the SSE connection
-  app.get("/:apiKey/sse", validateApiKey, async (req: Request, res: Response) => {
-    // Create SSE transport - messages endpoint includes basePath for reverse proxy support
-    // The client needs the full external path to POST messages back
-    const messagesPath = basePath
-      ? `${basePath}/${req.params.apiKey}/messages`
-      : `/${req.params.apiKey}/messages`;
-    const transport = new SSEServerTransport(messagesPath, res);
-    transports.set(transport.sessionId, transport);
-    console.log(`[http] SSE session created: ${transport.sessionId} (active: ${transports.size})`);
-
-    // Clean up on close
-    transport.onclose = () => {
-      transports.delete(transport.sessionId);
-      console.log(`[http] SSE session closed: ${transport.sessionId} (active: ${transports.size})`);
-    };
-
-    // Create a new MCP server instance for this connection
-    const mcpServer = createMcpServer(config);
-
-    // Connect to MCP server - this also starts the transport automatically
-    await mcpServer.connect(transport);
-  });
-
-  // Messages endpoint - receives JSON-RPC messages from the client
+  // Streamable HTTP endpoint - handles POST, GET, DELETE
   app.post(
-    "/:apiKey/messages",
+    "/:apiKey/mcp",
     validateApiKey,
     async (req: Request, res: Response) => {
-      const sessionId = req.query.sessionId as string;
-      if (!sessionId) {
-        console.warn("[http] POST /messages missing sessionId");
-        res.status(400).json({ error: "Missing sessionId query parameter" });
+      const sessionId = req.headers["mcp-session-id"] as string | undefined;
+      console.log(`[http] POST /mcp session=${sessionId ?? "none"} (active sessions: ${transports.size})`);
+
+      // Existing session
+      if (sessionId && transports.has(sessionId)) {
+        const transport = transports.get(sessionId)!;
+        await transport.handleRequest(req, res, req.body);
         return;
       }
 
-      const transport = transports.get(sessionId);
-      if (!transport) {
-        console.warn(`[http] POST /messages unknown session: ${sessionId}`);
+      // Stale session ID - tell client to re-initialize
+      if (sessionId) {
+        console.warn(`[http] POST with stale session: ${sessionId}, returning 404`);
         res.status(404).json({ error: "Session not found" });
         return;
       }
 
-      await transport.handlePostMessage(req, res, req.body);
-    }
+      // New session - create transport and MCP server
+      console.log("[http] Creating new session");
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+      });
+
+      transport.onclose = () => {
+        if (transport.sessionId) {
+          console.log(`[http] Session closed: ${transport.sessionId} (active: ${transports.size - 1})`);
+          transports.delete(transport.sessionId);
+        }
+      };
+
+      const mcpServer = createMcpServer(config);
+      await mcpServer.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+
+      if (transport.sessionId) {
+        transports.set(transport.sessionId, transport);
+        console.log(`[http] Session initialized: ${transport.sessionId} (active: ${transports.size})`);
+      }
+    },
   );
 
-  // Health check endpoint - always at root
+  // GET for server-initiated SSE notifications stream
+  app.get(
+    "/:apiKey/mcp",
+    validateApiKey,
+    async (req: Request, res: Response) => {
+      const sessionId = req.headers["mcp-session-id"] as string | undefined;
+      console.log(`[http] GET /mcp session=${sessionId ?? "none"}`);
+      if (!sessionId || !transports.has(sessionId)) {
+        console.warn(`[http] GET with unknown/missing session: ${sessionId ?? "none"}`);
+        res.status(400).json({ error: "Invalid or missing session ID" });
+        return;
+      }
+      const transport = transports.get(sessionId)!;
+      await transport.handleRequest(req, res);
+    },
+  );
+
+  // DELETE to terminate session
+  app.delete(
+    "/:apiKey/mcp",
+    validateApiKey,
+    async (req: Request, res: Response) => {
+      const sessionId = req.headers["mcp-session-id"] as string | undefined;
+      console.log(`[http] DELETE /mcp session=${sessionId ?? "none"}`);
+      if (!sessionId || !transports.has(sessionId)) {
+        console.warn(`[http] DELETE for unknown session: ${sessionId ?? "none"}`);
+        res.status(400).json({ error: "Invalid or missing session ID" });
+        return;
+      }
+      const transport = transports.get(sessionId)!;
+      await transport.handleRequest(req, res);
+    },
+  );
+
+  // Health check
   app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok" });
   });
 
-  // Start server
+  const basePath = config.basePath || "";
   const server = app.listen(config.port, () => {
     console.log(`[server] Listening on port ${config.port}`);
-    console.log(`[server] SSE endpoint: http://localhost:${config.port}/{apiKey}/sse`);
+    console.log(`[server] MCP endpoint: http://localhost:${config.port}/{apiKey}/mcp`);
     if (basePath) {
       console.log(`[server] External base path: ${basePath}`);
     }
@@ -175,7 +198,6 @@ function startSseServer(config: Config): void {
     process.exit(1);
   });
 
-  // Graceful shutdown
   process.on("SIGINT", async () => {
     console.log(`[server] Shutting down (SIGINT), closing ${transports.size} session(s)...`);
     for (const transport of transports.values()) {
