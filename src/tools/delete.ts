@@ -3,8 +3,7 @@ import { dirname, basename, join } from "path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath, getAllVaults } from "../utils/paths.js";
-
-const TRASH_FOLDER = ".trash";
+import { TRASH_FOLDER } from "../utils/constants.js";
 
 export async function deleteFile(
   path: string,

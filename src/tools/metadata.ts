@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } from "fs";
+import { existsSync, readFileSync, statSync } from "fs";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";

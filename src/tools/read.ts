@@ -2,11 +2,11 @@ import { existsSync, readFileSync, statSync } from "fs";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
-import { generateEtag } from "../utils/etag.js";
+import { generateEtag, generateEtagStream } from "../utils/etag.js";
 import { getMediaType, getMimeType, MAX_MEDIA_SIZE } from "../utils/media.js";
 import { hasICloudStub } from "../utils/icloud.js";
-
-const MAX_LINES = 500;
+import { readFirstLines } from "../utils/streaming.js";
+import { MAX_LINES, STREAMING_THRESHOLD } from "../utils/constants.js";
 
 export async function readFile(
   path: string,
@@ -116,7 +116,58 @@ export async function readFile(
       };
     }
 
-    // Text file — existing behavior
+    // Text file — use streaming for large files to avoid loading everything into memory
+    const stats = statSync(resolved.fullPath);
+
+    if (stats.size > STREAMING_THRESHOLD) {
+      // Large file: stream first N lines + compute etag from stream in parallel
+      const [{ lines: firstLines, totalLines }, etag] = await Promise.all([
+        readFirstLines(resolved.fullPath, MAX_LINES),
+        generateEtagStream(resolved.fullPath),
+      ]);
+
+      if (totalLines > MAX_LINES) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  path,
+                  content: firstLines.join("\n"),
+                  etag,
+                  truncated: true,
+                  linesReturned: MAX_LINES,
+                  totalLines,
+                  message: `File truncated at ${MAX_LINES} lines (${totalLines} total). Use get_sections to see file structure, or read_section to read specific sections.`,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                path,
+                content: firstLines.join("\n"),
+                etag,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
+
+    // Small file: read all at once (fast path)
     const fullContent = readFileSync(resolved.fullPath, "utf-8");
     const etag = generateEtag(fullContent);
 

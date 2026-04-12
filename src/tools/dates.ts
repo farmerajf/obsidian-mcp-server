@@ -4,6 +4,7 @@ import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath, toVirtualPath, getAllVaults } from "../utils/paths.js";
+import { VAULT_IGNORE_PATTERNS } from "../utils/constants.js";
 
 const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/;
 
@@ -46,7 +47,7 @@ export async function searchByDate(
       const files = await glob("**/*.md", {
         cwd: vault.searchPath,
         absolute: true,
-        ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
+        ignore: VAULT_IGNORE_PATTERNS,
       });
 
       for (const filePath of files) {

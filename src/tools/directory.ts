@@ -11,8 +11,7 @@ import { join, dirname, basename } from "path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath, toVirtualPath } from "../utils/paths.js";
-
-const TRASH_FOLDER = ".trash";
+import { TRASH_FOLDER } from "../utils/constants.js";
 
 export async function createDirectory(
   path: string,

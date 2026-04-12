@@ -4,6 +4,7 @@ import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath, toVirtualPath, getAllVaults } from "../utils/paths.js";
+import { VAULT_IGNORE_PATTERNS } from "../utils/constants.js";
 
 interface ResolvedLink {
   targetPath: string | null;
@@ -207,7 +208,7 @@ async function resolveLink(link: string, config: Config): Promise<ResolvedLink> 
     const files = await glob("**/*.md", {
       cwd: vault.basePath,
       absolute: true,
-      ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
+      ignore: VAULT_IGNORE_PATTERNS,
     });
 
     for (const filePath of files) {
@@ -229,7 +230,7 @@ async function resolveLink(link: string, config: Config): Promise<ResolvedLink> 
         cwd: vault.basePath,
         absolute: true,
         nodir: true,
-        ignore: ["**/node_modules/**", "**/.obsidian/**", "**/.trash/**"],
+        ignore: VAULT_IGNORE_PATTERNS,
       });
 
       for (const filePath of allFiles) {

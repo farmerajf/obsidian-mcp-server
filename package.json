@@ -9,8 +9,7 @@
     "start:stdio": "node dist/index.js --stdio",
     "start:sse": "node dist/index.js --sse",
     "dev": "tsc --watch",
-    "test": "vitest",
-    "test:client": "tsx test-client.ts"
+    "test": "vitest"
   },
   "keywords": [
     "mcp",
@@ -33,7 +32,6 @@
     "@types/node": "^25.0.3",
     "@vitest/coverage-v8": "^4.0.18",
     "memfs": "^4.51.1",
-    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   }

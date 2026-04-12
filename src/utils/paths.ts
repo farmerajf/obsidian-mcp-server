@@ -76,10 +76,6 @@ export function toVirtualPath(
   return "/" + vaultName + (rel ? "/" + rel : "");
 }
 
-export function getAllBasePaths(config: Config): string[] {
-  return Object.values(config.paths);
-}
-
 export function getAllVaults(
   config: Config
 ): Array<{ name: string; basePath: string }> {
