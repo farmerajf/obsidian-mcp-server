@@ -23,7 +23,7 @@ describe("loadConfig", () => {
     vol.reset();
   });
 
-  it("loads valid SSE config", () => {
+  it("loads valid HTTP config", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         port: 3000,
@@ -35,7 +35,7 @@ describe("loadConfig", () => {
 
     const config = loadConfig("/config.json");
 
-    expect(config.transport).toBe("sse");
+    expect(config.transport).toBe("http");
     expect(config.port).toBe(3000);
     expect(config.apiKey).toBe("test-key");
   });
@@ -75,7 +75,7 @@ describe("loadConfig", () => {
 
     vol.fromJSON({
       "/config.json": JSON.stringify({
-        transport: "sse",
+        transport: "http",
         port: 3000,
         apiKey: "test-key",
         paths: { vault: "/" },
@@ -88,8 +88,8 @@ describe("loadConfig", () => {
     expect(config.transport).toBe("stdio");
   });
 
-  it("overrides transport with --sse CLI arg", () => {
-    process.argv = ["node", "index.js", "--sse"];
+  it("overrides transport with --http CLI arg", () => {
+    process.argv = ["node", "index.js", "--http"];
 
     vol.fromJSON({
       "/config.json": JSON.stringify({
@@ -103,7 +103,7 @@ describe("loadConfig", () => {
 
     const config = loadConfig("/config.json");
 
-    expect(config.transport).toBe("sse");
+    expect(config.transport).toBe("http");
   });
 
   it("overrides transport with MCP_TRANSPORT env var", () => {
@@ -111,7 +111,7 @@ describe("loadConfig", () => {
 
     vol.fromJSON({
       "/config.json": JSON.stringify({
-        transport: "sse",
+        transport: "http",
         port: 3000,
         apiKey: "test-key",
         paths: { vault: "/" },
@@ -125,7 +125,7 @@ describe("loadConfig", () => {
   });
 
   it("CLI arg takes precedence over env var", () => {
-    process.argv = ["node", "index.js", "--sse"];
+    process.argv = ["node", "index.js", "--http"];
     process.env.MCP_TRANSPORT = "stdio";
 
     vol.fromJSON({
@@ -139,7 +139,7 @@ describe("loadConfig", () => {
 
     const config = loadConfig("/config.json");
 
-    expect(config.transport).toBe("sse");
+    expect(config.transport).toBe("http");
   });
 
   it("throws on missing config file", () => {
@@ -158,10 +158,10 @@ describe("loadConfig", () => {
     expect(() => loadConfig("/config.json")).toThrow("Invalid transport mode");
   });
 
-  it("throws on SSE mode without port", () => {
+  it("throws on HTTP mode without port", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
-        transport: "sse",
+        transport: "http",
         apiKey: "test-key",
         paths: { vault: "/" },
       }),
@@ -171,10 +171,10 @@ describe("loadConfig", () => {
     expect(() => loadConfig("/config.json")).toThrow("valid port number");
   });
 
-  it("throws on SSE mode without apiKey", () => {
+  it("throws on HTTP mode without apiKey", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
-        transport: "sse",
+        transport: "http",
         port: 3000,
         paths: { vault: "/" },
       }),

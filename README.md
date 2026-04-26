@@ -12,11 +12,11 @@ A generic filesystem server treats your vault as flat files. This server underst
 - **Obsidian URL deep-links** - convert between `obsidian://open?vault=...&file=...` URLs and file paths. The AI automatically cites sources as clickable links that open directly in Obsidian.
 - **Obsidian-safe operations** - soft delete to `.trash/` (matching Obsidian's behavior), `.obsidian/` directory protection, ETag conflict detection to prevent overwriting concurrent edits from the Obsidian app.
 - **Multi-vault** - access multiple vaults through a single server with a virtual path system, rather than configuring separate filesystem mounts.
-- **Remote-first** - SSE transport with API key auth, designed for accessing your vault from Claude Web/iOS over the network. Supports reverse proxy setups like Tailscale Funnel.
+- **Remote-first** - Streamable HTTP transport with API key auth, designed for accessing your vault from Claude Web/iOS over the network. Supports reverse proxy setups like Tailscale Funnel.
 
 ## Features
 
-- **Remote access**: Connect Claude Web/iOS to your Obsidian vault via SSE
+- **Remote access**: Connect Claude Web/iOS to your Obsidian vault via Streamable HTTP
 - **Multi-vault**: Configure multiple vaults with a virtual root path system
 - **Obsidian-aware**: Frontmatter, wikilinks, backlinks, tags, Obsidian URL deep-links
 - **CRUD+**: Standard operations plus append, patch, partial read
@@ -51,7 +51,7 @@ Edit `config.json`:
 ```
 
 - **`apiKey`**: A secret string you generate yourself. Use something long and random (e.g., `openssl rand -hex 32`). This key authenticates requests to your server.
-- **`port`**: The port the SSE server listens on.
+- **`port`**: The port the HTTP server listens on.
 - **`paths`**: A map of vault names to their absolute filesystem paths. The keys (e.g., `personal`, `work`) become the vault names used in paths and Obsidian URLs. You can configure one or many vaults.
 - **`basePath`** (optional): Set this when behind a reverse proxy that strips a path prefix (e.g., Tailscale Funnel with `--set-path`).
 
@@ -66,14 +66,14 @@ npm start
 
 The server supports two transport modes:
 
-- **SSE** (default): For remote access from Claude Web/iOS. Requires `port` and `apiKey`.
+- **http** (default): Streamable HTTP for remote access from Claude Web/iOS. Requires `port` and `apiKey`.
 - **stdio**: For local use with Claude Desktop. Set via `--stdio` flag, `MCP_TRANSPORT=stdio` env var, or config.
 
 ## Connecting from Claude Web/iOS
 
 Add a custom connector with URL:
 ```
-https://your-server.com/YOUR_API_KEY/sse
+https://your-server.com/YOUR_API_KEY/mcp
 ```
 
 ## Available Tools

@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 
-export type TransportMode = "stdio" | "sse";
+export type TransportMode = "stdio" | "http";
 
 export interface Config {
   transport: TransportMode;
@@ -27,24 +27,24 @@ export function loadConfig(configPath?: string): Config {
   const transportEnv = process.env.MCP_TRANSPORT as TransportMode | undefined;
   const transportArg = process.argv.includes("--stdio")
     ? "stdio"
-    : process.argv.includes("--sse")
-      ? "sse"
+    : process.argv.includes("--http")
+      ? "http"
       : undefined;
 
-  config.transport = transportArg || transportEnv || config.transport || "sse";
+  config.transport = transportArg || transportEnv || config.transport || "http";
 
-  if (config.transport !== "stdio" && config.transport !== "sse") {
-    throw new Error(`Invalid transport mode: ${config.transport}. Must be "stdio" or "sse"`);
+  if (config.transport !== "stdio" && config.transport !== "http") {
+    throw new Error(`Invalid transport mode: ${config.transport}. Must be "stdio" or "http"`);
   }
 
-  // Port is only required for SSE mode
-  if (config.transport === "sse") {
+  // Port is only required for HTTP mode
+  if (config.transport === "http") {
     if (typeof config.port !== "number" || config.port <= 0) {
-      throw new Error("Config must have a valid port number for SSE mode");
+      throw new Error("Config must have a valid port number for HTTP mode");
     }
 
     if (typeof config.apiKey !== "string" || config.apiKey.length === 0) {
-      throw new Error("Config must have a non-empty apiKey for SSE mode");
+      throw new Error("Config must have a non-empty apiKey for HTTP mode");
     }
 
     // Normalize basePath: ensure leading slash, no trailing slash

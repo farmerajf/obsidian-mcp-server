@@ -91,7 +91,7 @@ export const TEST_VAULT_PATH = "/vault";
 
 export function createTestConfig(): Config {
   return {
-    transport: "sse",
+    transport: "http",
     port: 3000,
     apiKey: "test-api-key",
     paths: {

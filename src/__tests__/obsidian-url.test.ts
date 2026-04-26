@@ -6,7 +6,7 @@ import "../__tests__/helpers/setup.js";
 
 function createMultiVaultConfig(): Config {
   return {
-    transport: "sse",
+    transport: "http",
     port: 3000,
     apiKey: "test-api-key",
     paths: {
