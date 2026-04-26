@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig, type Config } from "./config.js";
 import { registerTools } from "./tools/index.js";
+import { wrapWithToolLogging } from "./utils/logger.js";
 
 const config = loadConfig(process.env.CONFIG_PATH);
 console.log(`[server] Config loaded (transport: ${config.transport})`);
@@ -43,6 +44,7 @@ function createMcpServer(config: Config): McpServer {
       instructions: buildInstructions(config),
     }
   );
+  wrapWithToolLogging(server);
   registerTools(server, config);
   return server;
 }
