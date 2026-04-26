@@ -23,7 +23,7 @@ export function wrapWithToolLogging(server: McpServer): void {
         : "local";
       const argsSummary = summarizeArgs(name, parsedArgs);
 
-      console.log(`[tool] ${sessionId} → ${name}${argsSummary}`);
+      console.error(`[tool] ${sessionId} → ${name}${argsSummary}`);
 
       try {
         const result = await originalCb(parsedArgs, extra);
@@ -31,7 +31,7 @@ export function wrapWithToolLogging(server: McpServer): void {
         const status = result?.isError ? "FAILED" : "ok";
         const resultSummary = summarizeResult(name, result);
 
-        console.log(
+        console.error(
           `[tool] ${sessionId} ← ${name} ${status} (${duration}ms)${resultSummary}`
         );
         return result;

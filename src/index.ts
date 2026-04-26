@@ -8,7 +8,7 @@ import { registerTools } from "./tools/index.js";
 import { wrapWithToolLogging } from "./utils/logger.js";
 
 const config = loadConfig(process.env.CONFIG_PATH);
-console.log(`[server] Config loaded (transport: ${config.transport})`);
+console.error(`[server] Config loaded (transport: ${config.transport})`);
 
 
 function buildInstructions(config: Config): string {
@@ -61,7 +61,7 @@ async function startStdioServer(config: Config): Promise<void> {
   const server = createMcpServer(config);
   const transport = new StdioServerTransport();
 
-  console.log("[server] Starting in stdio mode");
+  console.error("[server] Starting in stdio mode");
   console.error(`Configured paths:`);
   for (const [name, path] of Object.entries(config.paths)) {
     console.error(`  ${name}: ${path}`);
