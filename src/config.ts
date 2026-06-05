@@ -6,8 +6,7 @@ export type TransportMode = "stdio" | "http";
 export interface Config {
   transport: TransportMode;
   port: number;
-  apiKey: string;
-  basePath?: string;
+  password: string;
   paths: Record<string, string>;
 }
 
@@ -43,25 +42,13 @@ export function loadConfig(configPath?: string): Config {
       throw new Error("Config must have a valid port number for HTTP mode");
     }
 
-    if (typeof config.apiKey !== "string" || config.apiKey.length === 0) {
-      throw new Error("Config must have a non-empty apiKey for HTTP mode");
-    }
-
-    // Normalize basePath: ensure leading slash, no trailing slash
-    if (config.basePath) {
-      let bp = config.basePath;
-      if (!bp.startsWith("/")) {
-        bp = "/" + bp;
-      }
-      if (bp.endsWith("/")) {
-        bp = bp.slice(0, -1);
-      }
-      config.basePath = bp;
+    if (typeof config.password !== "string" || config.password.length === 0) {
+      throw new Error("Config must have a non-empty password for HTTP mode");
     }
   } else {
     // Set defaults for stdio mode
     config.port = config.port || 0;
-    config.apiKey = config.apiKey || "";
+    config.password = config.password || "";
   }
 
   if (
