@@ -374,6 +374,23 @@ function startHttpServer(config: Config): void {
     await transports.get(sessionId)!.handleRequest(req, res);
   }
 
+  // Favicon — Lucide-style lightning bolt on indigo background
+  // Claude Code Desktop fetches this to show as the connector icon
+  const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#6366f1"/>
+  <g transform="translate(4,4)" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+  </g>
+</svg>`;
+  app.get("/favicon.ico", (_req: Request, res: Response) => {
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.send(FAVICON_SVG);
+  });
+  app.get("/favicon.svg", (_req: Request, res: Response) => {
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.send(FAVICON_SVG);
+  });
+
   // Health check
   app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok" });
