@@ -8,7 +8,7 @@ function createMultiVaultConfig(): Config {
   return {
     transport: "http",
     port: 3000,
-    apiKey: "test-api-key",
+    password: "test-password",
     paths: {
       personal: "/personal-vault",
       work: "/work-vault",

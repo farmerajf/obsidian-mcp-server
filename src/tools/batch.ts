@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, appendFileSync, statSync } from "fs";
+import { existsSync, unlinkSync, mkdirSync, statSync } from "fs";
+import { readFile, writeFile, appendFile } from "fs/promises";
 import { dirname } from "path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
@@ -131,7 +132,7 @@ async function readSingleFile(
           error: `File too large (${(stats.size / (1024 * 1024)).toFixed(1)} MB). Use read_file individually for files up to 10 MB.`,
         };
       }
-      const buffer = readFileSync(resolved.fullPath);
+      const buffer = await readFile(resolved.fullPath);
       const etag = generateEtag(buffer);
       const result: ReadResult = {
         path,
@@ -158,7 +159,7 @@ async function readSingleFile(
           error: `File too large (${(stats.size / (1024 * 1024)).toFixed(1)} MB). Maximum supported size is 10 MB.`,
         };
       }
-      const buffer = readFileSync(resolved.fullPath);
+      const buffer = await readFile(resolved.fullPath);
       const etag = generateEtag(buffer);
       const result: ReadResult = {
         path,
@@ -215,7 +216,7 @@ async function readSingleFile(
     }
 
     // Small text file: read all at once (fast path)
-    const fullContent = readFileSync(resolved.fullPath, "utf-8");
+    const fullContent = await readFile(resolved.fullPath, "utf-8");
     const etag = generateEtag(fullContent);
 
     const lines = fullContent.split("\n");
@@ -299,7 +300,7 @@ export async function batchWrite(
         }
 
         if (op.expectedEtag) {
-          const content = readFileSync(resolved.fullPath, "utf-8");
+          const content = await readFile(resolved.fullPath, "utf-8");
           const currentEtag = generateEtag(content);
           if (currentEtag !== op.expectedEtag) {
             return {
@@ -354,7 +355,7 @@ export async function batchWrite(
             mkdirSync(dir, { recursive: true });
           }
 
-          writeFileSync(resolved.fullPath, op.content, "utf-8");
+          await writeFile(resolved.fullPath, op.content, "utf-8");
           const etag = generateEtag(op.content);
           results.push({
             path: op.path,
@@ -380,7 +381,7 @@ export async function batchWrite(
             }
           }
 
-          writeFileSync(resolved.fullPath, op.content, "utf-8");
+          await writeFile(resolved.fullPath, op.content, "utf-8");
           const etag = generateEtag(op.content);
           results.push({
             path: op.path,
@@ -399,12 +400,12 @@ export async function batchWrite(
             if (!existsSync(dir)) {
               mkdirSync(dir, { recursive: true });
             }
-            writeFileSync(resolved.fullPath, op.content, "utf-8");
+            await writeFile(resolved.fullPath, op.content, "utf-8");
           } else {
-            appendFileSync(resolved.fullPath, op.content, "utf-8");
+            await appendFile(resolved.fullPath, op.content, "utf-8");
           }
 
-          const content = readFileSync(resolved.fullPath, "utf-8");
+          const content = await readFile(resolved.fullPath, "utf-8");
           const etag = generateEtag(content);
           results.push({
             path: op.path,

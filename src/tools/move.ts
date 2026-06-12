@@ -1,4 +1,5 @@
-import { existsSync, renameSync, readFileSync, writeFileSync, statSync, copyFileSync, unlinkSync } from "fs";
+import { existsSync, renameSync, statSync, copyFileSync, unlinkSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import { dirname, basename, extname } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -162,7 +163,7 @@ async function updateWikilinks(
     });
 
     for (const filePath of files) {
-      let content = readFileSync(filePath, "utf-8");
+      let content = await readFile(filePath, "utf-8");
       let modified = false;
 
       // Match various wikilink formats:
@@ -201,7 +202,7 @@ async function updateWikilinks(
       }
 
       if (modified) {
-        writeFileSync(filePath, content, "utf-8");
+        await writeFile(filePath, content, "utf-8");
         const virtualPath = toVirtualPath(filePath, vault.basePath, vault.name);
         filesUpdated.push(virtualPath);
       }

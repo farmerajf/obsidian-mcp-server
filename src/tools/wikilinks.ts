@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "fs";
+import { existsSync } from "fs";
+import { readFile } from "fs/promises";
 import { basename } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -63,7 +64,7 @@ export async function extractWikilinks(
       };
     }
 
-    const content = readFileSync(resolved.fullPath, "utf-8");
+    const content = await readFile(resolved.fullPath, "utf-8");
     const lines = content.split("\n");
 
     // Match wikilinks: [[...]] and ![[...]]

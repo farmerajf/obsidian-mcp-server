@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, statSync } from "fs";
+import { existsSync, statSync } from "fs";
+import { readFile as fsReadFile } from "fs/promises";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
@@ -50,7 +51,7 @@ export async function readFile(
         };
       }
 
-      const buffer = readFileSync(resolved.fullPath);
+      const buffer = await fsReadFile(resolved.fullPath);
       const etag = generateEtag(buffer);
       const mimeType = getMimeType(resolved.fullPath)!;
       const base64 = buffer.toString("base64");
@@ -81,7 +82,7 @@ export async function readFile(
         };
       }
 
-      const buffer = readFileSync(resolved.fullPath);
+      const buffer = await fsReadFile(resolved.fullPath);
       const etag = generateEtag(buffer);
       const mimeType = getMimeType(resolved.fullPath)!;
       const base64 = buffer.toString("base64");
@@ -168,7 +169,7 @@ export async function readFile(
     }
 
     // Small file: read all at once (fast path)
-    const fullContent = readFileSync(resolved.fullPath, "utf-8");
+    const fullContent = await fsReadFile(resolved.fullPath, "utf-8");
     const etag = generateEtag(fullContent);
 
     const lines = fullContent.split("\n");

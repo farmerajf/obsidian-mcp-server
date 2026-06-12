@@ -27,7 +27,7 @@ describe("loadConfig", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         port: 3000,
-        apiKey: "test-key",
+        password: "test-password",
         paths: { vault: "/" },
       }),
       "/": null, // Directory
@@ -37,7 +37,7 @@ describe("loadConfig", () => {
 
     expect(config.transport).toBe("http");
     expect(config.port).toBe(3000);
-    expect(config.apiKey).toBe("test-key");
+    expect(config.password).toBe("test-password");
   });
 
   it("loads config with explicit transport mode", () => {
@@ -54,7 +54,7 @@ describe("loadConfig", () => {
     expect(config.transport).toBe("stdio");
   });
 
-  it("allows stdio mode without port and apiKey", () => {
+  it("allows stdio mode without port and password", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         transport: "stdio",
@@ -67,7 +67,7 @@ describe("loadConfig", () => {
 
     expect(config.transport).toBe("stdio");
     expect(config.port).toBe(0);
-    expect(config.apiKey).toBe("");
+    expect(config.password).toBe("");
   });
 
   it("overrides transport with --stdio CLI arg", () => {
@@ -77,7 +77,7 @@ describe("loadConfig", () => {
       "/config.json": JSON.stringify({
         transport: "http",
         port: 3000,
-        apiKey: "test-key",
+        password: "test-password",
         paths: { vault: "/" },
       }),
       "/": null,
@@ -95,7 +95,7 @@ describe("loadConfig", () => {
       "/config.json": JSON.stringify({
         transport: "stdio",
         port: 3000,
-        apiKey: "test-key",
+        password: "test-password",
         paths: { vault: "/" },
       }),
       "/": null,
@@ -113,7 +113,7 @@ describe("loadConfig", () => {
       "/config.json": JSON.stringify({
         transport: "http",
         port: 3000,
-        apiKey: "test-key",
+        password: "test-password",
         paths: { vault: "/" },
       }),
       "/": null,
@@ -131,7 +131,7 @@ describe("loadConfig", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         port: 3000,
-        apiKey: "test-key",
+        password: "test-password",
         paths: { vault: "/" },
       }),
       "/": null,
@@ -162,7 +162,7 @@ describe("loadConfig", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         transport: "http",
-        apiKey: "test-key",
+        password: "test-password",
         paths: { vault: "/" },
       }),
       "/": null,
@@ -171,7 +171,7 @@ describe("loadConfig", () => {
     expect(() => loadConfig("/config.json")).toThrow("valid port number");
   });
 
-  it("throws on HTTP mode without apiKey", () => {
+  it("throws on HTTP mode without password", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         transport: "http",
@@ -181,7 +181,7 @@ describe("loadConfig", () => {
       "/": null,
     });
 
-    expect(() => loadConfig("/config.json")).toThrow("non-empty apiKey");
+    expect(() => loadConfig("/config.json")).toThrow("non-empty password");
   });
 
   it("throws on missing paths", () => {
@@ -198,7 +198,7 @@ describe("loadConfig", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         port: 3000,
-        apiKey: "test-key",
+        password: "test-password",
         basePath: "obsidian-mcp",
         paths: { vault: "/" },
       }),
@@ -214,7 +214,7 @@ describe("loadConfig", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         port: 3000,
-        apiKey: "test-key",
+        password: "test-password",
         basePath: "/obsidian-mcp/",
         paths: { vault: "/" },
       }),
@@ -230,7 +230,7 @@ describe("loadConfig", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         port: 3000,
-        apiKey: "test-key",
+        password: "test-password",
         basePath: "api/mcp/",
         paths: { vault: "/" },
       }),
@@ -246,7 +246,7 @@ describe("loadConfig", () => {
     vol.fromJSON({
       "/config.json": JSON.stringify({
         port: 3000,
-        apiKey: "test-key",
+        password: "test-password",
         paths: { vault: "/" },
       }),
       "/": null,

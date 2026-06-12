@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
@@ -20,7 +21,7 @@ export async function getFrontmatter(
       };
     }
 
-    const content = readFileSync(resolved.fullPath, "utf-8");
+    const content = await readFile(resolved.fullPath, "utf-8");
     const etag = generateEtag(content);
     const match = content.match(FRONTMATTER_REGEX);
 
@@ -92,7 +93,7 @@ export async function updateFrontmatter(
       };
     }
 
-    let content = readFileSync(resolved.fullPath, "utf-8");
+    let content = await readFile(resolved.fullPath, "utf-8");
     const currentEtag = generateEtag(content);
 
     // Check for conflicts
@@ -141,7 +142,7 @@ export async function updateFrontmatter(
     const body = content.slice(bodyStart);
     const newContent = `---\n${newFmYaml}---\n${body}`;
 
-    writeFileSync(resolved.fullPath, newContent, "utf-8");
+    await writeFile(resolved.fullPath, newContent, "utf-8");
     const newEtag = generateEtag(newContent);
 
     return {

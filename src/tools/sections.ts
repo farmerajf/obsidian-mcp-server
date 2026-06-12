@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFile } from "fs/promises";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
@@ -11,7 +11,7 @@ export async function getSections(
 ): Promise<CallToolResult> {
   try {
     const resolved = resolvePath(path, config);
-    const content = readFileSync(resolved.fullPath, "utf-8");
+    const content = await readFile(resolved.fullPath, "utf-8");
     const parsed = parseSections(content);
 
     // Strip content from sections — only return structure
@@ -65,7 +65,7 @@ export async function readSection(
 
   try {
     const resolved = resolvePath(path, config);
-    const content = readFileSync(resolved.fullPath, "utf-8");
+    const content = await readFile(resolved.fullPath, "utf-8");
     const etag = generateEtag(content);
     const lines = content.split("\n");
 

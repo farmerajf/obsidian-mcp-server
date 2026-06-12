@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
@@ -28,7 +29,7 @@ export async function updateFile(
 
     // If expectedEtag is provided, check for conflicts
     if (expectedEtag) {
-      const currentContent = readFileSync(resolved.fullPath, "utf-8");
+      const currentContent = await readFile(resolved.fullPath, "utf-8");
       const currentEtag = generateEtag(currentContent);
 
       if (currentEtag !== expectedEtag) {
@@ -56,7 +57,7 @@ export async function updateFile(
     }
 
     // Write the file
-    writeFileSync(resolved.fullPath, content, "utf-8");
+    await writeFile(resolved.fullPath, content, "utf-8");
     const newEtag = generateEtag(content);
 
     return {

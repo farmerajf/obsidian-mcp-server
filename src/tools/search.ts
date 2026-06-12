@@ -1,4 +1,5 @@
-import { readFileSync, statSync, createReadStream } from "fs";
+import { statSync, createReadStream } from "fs";
+import { readFile } from "fs/promises";
 import { createInterface } from "readline";
 import { basename, extname } from "path";
 import { glob } from "glob";
@@ -75,7 +76,7 @@ export async function searchFiles(
           try {
             const matches = isLargeFile
               ? await searchStreaming(filePath, regex)
-              : searchFullContent(filePath, regex);
+              : await searchFullContent(filePath, regex);
 
             if (matches.length > 0) {
               results.push({
@@ -121,11 +122,11 @@ export async function searchFiles(
 }
 
 /** Search full file content (small files) */
-function searchFullContent(
+async function searchFullContent(
   filePath: string,
   regex: RegExp
-): { line: number; content: string }[] {
-  const content = readFileSync(filePath, "utf-8");
+): Promise<{ line: number; content: string }[]> {
+  const content = await readFile(filePath, "utf-8");
   const lines = content.split("\n");
   const matches: { line: number; content: string }[] = [];
 

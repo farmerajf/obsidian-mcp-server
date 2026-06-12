@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFile } from "fs/promises";
 import { basename, extname } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -44,7 +44,7 @@ export async function getBacklinks(
         // Skip self
         if (filePath === resolved.fullPath) continue;
 
-        const content = readFileSync(filePath, "utf-8");
+        const content = await readFile(filePath, "utf-8");
         const lines = content.split("\n");
 
         // Get title from frontmatter or filename

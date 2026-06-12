@@ -1,4 +1,5 @@
-import { readFileSync, statSync } from "fs";
+import { statSync } from "fs";
+import { readFile } from "fs/promises";
 import { basename } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -59,7 +60,7 @@ export async function searchByDate(
           fileDate = dateField === "created" ? stats.birthtime : stats.mtime;
         } else {
           // Look in frontmatter
-          const content = readFileSync(filePath, "utf-8");
+          const content = await readFile(filePath, "utf-8");
           const fmMatch = content.match(FRONTMATTER_REGEX);
           if (fmMatch) {
             const dateMatch = fmMatch[1].match(
@@ -85,7 +86,7 @@ export async function searchByDate(
         if (inRange) {
           // Get title
           let title: string | null = null;
-          const content = readFileSync(filePath, "utf-8");
+          const content = await readFile(filePath, "utf-8");
           const fmMatch = content.match(FRONTMATTER_REGEX);
           if (fmMatch) {
             const titleMatch = fmMatch[1].match(/title:\s*["']?([^"'\n]+)["']?/);

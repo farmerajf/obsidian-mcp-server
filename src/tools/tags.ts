@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFile } from "fs/promises";
 import { basename } from "path";
 import { glob } from "glob";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -47,7 +47,7 @@ export async function searchByTag(
       });
 
       for (const filePath of files) {
-        const content = readFileSync(filePath, "utf-8");
+        const content = await readFile(filePath, "utf-8");
         const matchedTags: string[] = [];
         const tagLocations: Array<{
           tag: string;
@@ -199,7 +199,7 @@ export async function listAllTags(
       });
 
       for (const filePath of files) {
-        const content = readFileSync(filePath, "utf-8");
+        const content = await readFile(filePath, "utf-8");
 
         // Frontmatter tags
         const fmTags = extractFrontmatterTags(content);

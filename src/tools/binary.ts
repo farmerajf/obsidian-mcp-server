@@ -1,4 +1,5 @@
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import { dirname, basename } from "path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
@@ -31,7 +32,7 @@ export async function createBinaryFile(
     }
 
     const buffer = Buffer.from(base64Content, "base64");
-    writeFileSync(resolved.fullPath, buffer);
+    await writeFile(resolved.fullPath, buffer);
     const etag = generateEtag(buffer);
 
     return {
@@ -103,12 +104,12 @@ export async function attachToNote(
 
     // Write the binary file
     const buffer = Buffer.from(base64Content, "base64");
-    writeFileSync(attachmentFullPath, buffer);
+    await writeFile(attachmentFullPath, buffer);
     const attachmentEtag = generateEtag(buffer);
 
     // Insert embed link into the note
     const embedLink = `![[${fileName}]]`;
-    let noteContent = readFileSync(noteResolved.fullPath, "utf-8");
+    let noteContent = await readFile(noteResolved.fullPath, "utf-8");
 
     if (position === "end") {
       if (noteContent.length > 0 && !noteContent.endsWith("\n")) {
@@ -142,7 +143,7 @@ export async function attachToNote(
       }
     }
 
-    writeFileSync(noteResolved.fullPath, noteContent, "utf-8");
+    await writeFile(noteResolved.fullPath, noteContent, "utf-8");
     const noteEtag = generateEtag(noteContent);
 
     return {

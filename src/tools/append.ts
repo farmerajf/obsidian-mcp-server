@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, statSync } from "fs";
+import { existsSync, mkdirSync, statSync } from "fs";
+import { readFile, writeFile, appendFile as fsAppendFile } from "fs/promises";
 import { dirname } from "path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
@@ -42,7 +43,7 @@ export async function appendFile(
       }
 
       // Create file with content
-      writeFileSync(resolved.fullPath, content, "utf-8");
+      await writeFile(resolved.fullPath, content, "utf-8");
       created = true;
     } else {
       // File exists, append to it
@@ -52,7 +53,7 @@ export async function appendFile(
         // Check if file ends with newline
         const stats = statSync(resolved.fullPath);
         if (stats.size > 0) {
-          const fd = readFileSync(resolved.fullPath);
+          const fd = await readFile(resolved.fullPath);
           const lastChar = fd[fd.length - 1];
           if (lastChar !== 10) {
             // 10 = newline
@@ -65,11 +66,11 @@ export async function appendFile(
         finalContent = separator + finalContent;
       }
 
-      appendFileSync(resolved.fullPath, finalContent, "utf-8");
+      await fsAppendFile(resolved.fullPath, finalContent, "utf-8");
     }
 
     // Get new file stats
-    const newContent = readFileSync(resolved.fullPath, "utf-8");
+    const newContent = await readFile(resolved.fullPath, "utf-8");
     const etag = generateEtag(newContent);
     const newSize = Buffer.byteLength(newContent, "utf-8");
 
@@ -138,11 +139,11 @@ export async function prependFile(
       }
 
       // Create file with content
-      writeFileSync(resolved.fullPath, content, "utf-8");
+      await writeFile(resolved.fullPath, content, "utf-8");
       created = true;
     } else {
       // File exists, prepend to it
-      const existingContent = readFileSync(resolved.fullPath, "utf-8");
+      const existingContent = await readFile(resolved.fullPath, "utf-8");
       let insertAt = 0;
 
       if (afterFrontmatter) {
@@ -161,11 +162,11 @@ export async function prependFile(
       const newContent =
         existingContent.slice(0, insertAt) + finalContent + existingContent.slice(insertAt);
 
-      writeFileSync(resolved.fullPath, newContent, "utf-8");
+      await writeFile(resolved.fullPath, newContent, "utf-8");
     }
 
     // Get new file stats
-    const newContent = readFileSync(resolved.fullPath, "utf-8");
+    const newContent = await readFile(resolved.fullPath, "utf-8");
     const etag = generateEtag(newContent);
     const newSize = Buffer.byteLength(newContent, "utf-8");
 

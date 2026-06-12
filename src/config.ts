@@ -7,6 +7,7 @@ export interface Config {
   transport: TransportMode;
   port: number;
   password: string;
+  basePath?: string;
   paths: Record<string, string>;
 }
 
@@ -49,6 +50,14 @@ export function loadConfig(configPath?: string): Config {
     // Set defaults for stdio mode
     config.port = config.port || 0;
     config.password = config.password || "";
+  }
+
+  // Normalize basePath: ensure leading slash, no trailing slash
+  if (config.basePath) {
+    let bp = config.basePath;
+    if (!bp.startsWith("/")) bp = "/" + bp;
+    if (bp.endsWith("/")) bp = bp.slice(0, -1);
+    config.basePath = bp;
   }
 
   if (

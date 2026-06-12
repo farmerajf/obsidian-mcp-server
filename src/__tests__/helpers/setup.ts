@@ -8,6 +8,11 @@ vi.mock("fs", async () => {
   return memfs.fs;
 });
 
+vi.mock("fs/promises", async () => {
+  const memfs = await import("memfs");
+  return memfs.fs.promises;
+});
+
 // Mock glob to work with memfs
 vi.mock("glob", async () => {
   const memfs = await import("memfs");
@@ -93,7 +98,7 @@ export function createTestConfig(): Config {
   return {
     transport: "http",
     port: 3000,
-    apiKey: "test-api-key",
+    password: "test-password",
     paths: {
       vault: TEST_VAULT_PATH,
     },

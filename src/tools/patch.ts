@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
@@ -39,7 +40,7 @@ export async function patchFile(
       };
     }
 
-    let content = readFileSync(resolved.fullPath, "utf-8");
+    let content = await readFile(resolved.fullPath, "utf-8");
     const currentEtag = generateEtag(content);
 
     // Check for conflicts
@@ -246,7 +247,7 @@ export async function patchFile(
     }
 
     // Write the patched content
-    writeFileSync(resolved.fullPath, content, "utf-8");
+    await writeFile(resolved.fullPath, content, "utf-8");
     const newEtag = generateEtag(content);
 
     const result: Record<string, unknown> = {

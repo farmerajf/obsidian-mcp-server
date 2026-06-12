@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, statSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import { join, dirname, basename, extname } from "path";
 import yaml from "js-yaml";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -171,7 +172,7 @@ export async function listBases(config: Config): Promise<CallToolResult> {
     const bases: Array<Record<string, unknown>> = [];
 
     for (const bf of baseFiles) {
-      const content = readFileSync(bf.fullPath, "utf-8");
+      const content = await readFile(bf.fullPath, "utf-8");
       const parsed = parseBaseFile(content);
       const folder = extractFolder(parsed.filters);
 
@@ -232,7 +233,7 @@ export async function queryBase(
       };
     }
 
-    const content = readFileSync(resolved.fullPath, "utf-8");
+    const content = await readFile(resolved.fullPath, "utf-8");
     const parsed = parseBaseFile(content);
     const folder = extractFolder(parsed.filters);
 
@@ -261,7 +262,7 @@ export async function queryBase(
     // Collect items
     const items: Array<Record<string, unknown>> = [];
     for (const filePath of itemFiles) {
-      const fileContent = readFileSync(filePath, "utf-8");
+      const fileContent = await readFile(filePath, "utf-8");
       const frontmatter = extractFrontmatter(fileContent);
       const fileName = basename(filePath, ".md");
       const virtualPath = toVirtualPath(filePath, resolved.basePath, resolved.vaultName);
@@ -371,7 +372,7 @@ export async function createBaseItem(
       };
     }
 
-    const content = readFileSync(resolved.fullPath, "utf-8");
+    const content = await readFile(resolved.fullPath, "utf-8");
     const parsed = parseBaseFile(content);
     const folder = extractFolder(parsed.filters);
 
@@ -423,7 +424,7 @@ export async function createBaseItem(
       fileContent = "---\n" + yaml.dump(properties, { lineWidth: -1 }).trimEnd() + "\n---\n";
     }
 
-    writeFileSync(filePath, fileContent, "utf-8");
+    await writeFile(filePath, fileContent, "utf-8");
     const etag = generateEtag(fileContent);
     const virtualPath = toVirtualPath(filePath, resolved.basePath, resolved.vaultName);
 
@@ -467,7 +468,7 @@ export async function getBaseSchema(
       };
     }
 
-    const content = readFileSync(resolved.fullPath, "utf-8");
+    const content = await readFile(resolved.fullPath, "utf-8");
     const parsed = parseBaseFile(content);
     const folder = extractFolder(parsed.filters);
 
@@ -500,7 +501,7 @@ export async function getBaseSchema(
     > = {};
 
     for (const filePath of itemFiles) {
-      const fileContent = readFileSync(filePath, "utf-8");
+      const fileContent = await readFile(filePath, "utf-8");
       const frontmatter = extractFrontmatter(fileContent);
 
       for (const [key, value] of Object.entries(frontmatter)) {

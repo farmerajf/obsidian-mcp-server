@@ -1,4 +1,5 @@
-import { existsSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
+import { writeFile } from "fs/promises";
 import { dirname } from "path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
@@ -33,7 +34,7 @@ export async function createFile(
     }
 
     // Write the file
-    writeFileSync(resolved.fullPath, content, "utf-8");
+    await writeFile(resolved.fullPath, content, "utf-8");
     const etag = generateEtag(content);
 
     return {

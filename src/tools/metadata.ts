@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, statSync } from "fs";
+import { existsSync, statSync } from "fs";
+import { readFile } from "fs/promises";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { Config } from "../config.js";
 import { resolvePath } from "../utils/paths.js";
@@ -62,7 +63,7 @@ export async function readFilePartial(
       };
     }
 
-    const fullContent = readFileSync(resolved.fullPath, "utf-8");
+    const fullContent = await readFile(resolved.fullPath, "utf-8");
     const stats = statSync(resolved.fullPath);
     let content: string;
     let actualEnd: number;
@@ -176,12 +177,12 @@ export async function getFileMetadata(
 
       if (fileMediaType !== "text") {
         // Binary file — return basic metadata only
-        const buffer = readFileSync(resolved.fullPath);
+        const buffer = await readFile(resolved.fullPath);
         result.etag = generateEtag(buffer);
         result.mediaType = fileMediaType;
         result.mimeType = getMimeType(resolved.fullPath);
       } else {
-        const content = readFileSync(resolved.fullPath, "utf-8");
+        const content = await readFile(resolved.fullPath, "utf-8");
         result.etag = generateEtag(content);
         result.lineCount = content.split("\n").length;
 
