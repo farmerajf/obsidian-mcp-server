@@ -63,12 +63,12 @@ describe("obsidianUrlToPath", () => {
 
   it("handles URL-encoded characters", async () => {
     const result = await obsidianUrlToPath(
-      "obsidian://open?vault=personal&file=Base%20items%2FMy%20Note",
+      "obsidian://open?vault=personal&file=Bases%2FMy%20Note",
       config
     );
     const data = getResult(result) as { path: string };
 
-    expect(data.path).toBe("/personal/Base items/My Note.md");
+    expect(data.path).toBe("/personal/Bases/My Note.md");
   });
 
   it("matches vault name case-insensitively", async () => {
@@ -139,7 +139,7 @@ describe("pathToObsidianUrl", () => {
     vol.fromJSON({
       "/personal-vault/notes/todo.md": "content",
       "/personal-vault/attachments/image.png": "image",
-      "/personal-vault/Base items/My Note.md": "content",
+      "/personal-vault/Bases/My Note.md": "content",
       "/work-vault/projects/roadmap.md": "content",
     });
   });
@@ -169,11 +169,11 @@ describe("pathToObsidianUrl", () => {
   });
 
   it("encodes spaces in file path", async () => {
-    const result = await pathToObsidianUrl("/personal/Base items/My Note.md", config);
+    const result = await pathToObsidianUrl("/personal/Bases/My Note.md", config);
     const data = getResult(result) as { obsidianUrl: string };
 
     expect(data.obsidianUrl).toBe(
-      "obsidian://open?vault=personal&file=Base%20items%2FMy%20Note"
+      "obsidian://open?vault=personal&file=Bases%2FMy%20Note"
     );
   });
 
@@ -198,7 +198,7 @@ describe("round-trip", () => {
   beforeEach(() => {
     vol.fromJSON({
       "/personal-vault/notes/daily/2024-01-01.md": "content",
-      "/personal-vault/Base items/My Note.md": "content",
+      "/personal-vault/Bases/My Note.md": "content",
     });
   });
 
@@ -215,7 +215,7 @@ describe("round-trip", () => {
   });
 
   it("round-trips paths with spaces", async () => {
-    const originalPath = "/personal/Base items/My Note.md";
+    const originalPath = "/personal/Bases/My Note.md";
 
     const urlResult = await pathToObsidianUrl(originalPath, config);
     const { obsidianUrl } = getResult(urlResult) as { obsidianUrl: string };

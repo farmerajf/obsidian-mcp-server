@@ -15,7 +15,7 @@ function setupBaseFixture(): void {
     "/vault/Projects/Tasks.base",
     `filters:
   and:
-    - file.inFolder("Base items/Tasks")
+    - file.inFolder("Bases/Tasks")
 properties:
   note.Status:
     displayName: Task Status
@@ -38,10 +38,10 @@ views:
   );
 
   // Create items folder and items
-  vol.mkdirSync("/vault/Base items/Tasks", { recursive: true });
+  vol.mkdirSync("/vault/Bases/Tasks", { recursive: true });
 
   vol.writeFileSync(
-    "/vault/Base items/Tasks/Fix login bug.md",
+    "/vault/Bases/Tasks/Fix login bug.md",
     `---
 Status: In progress
 Priority: 1
@@ -53,7 +53,7 @@ Details about the login bug.
   );
 
   vol.writeFileSync(
-    "/vault/Base items/Tasks/Add dark mode.md",
+    "/vault/Bases/Tasks/Add dark mode.md",
     `---
 Status: Not started
 Priority: 3
@@ -65,7 +65,7 @@ Dark mode implementation notes.
   );
 
   vol.writeFileSync(
-    "/vault/Base items/Tasks/Update docs.md",
+    "/vault/Bases/Tasks/Update docs.md",
     `---
 Status: Done
 Priority: 2
@@ -98,7 +98,7 @@ describe("listBases", () => {
 
     const tasksBase = data.bases.find(b => b.name === "Tasks");
     expect(tasksBase).toBeDefined();
-    expect(tasksBase!.folder).toBe("Base items/Tasks");
+    expect(tasksBase!.folder).toBe("Bases/Tasks");
     expect(tasksBase!.itemCount).toBe(3);
     expect(tasksBase!.views).toContain("Active");
     expect(tasksBase!.views).toContain("Done");
@@ -185,12 +185,12 @@ describe("createBaseItem", () => {
     };
 
     expect(data.success).toBe(true);
-    expect(data.path).toBe("/vault/Base items/Tasks/Write tests.md");
+    expect(data.path).toBe("/vault/Bases/Tasks/Write tests.md");
     expect(data.base).toBe("Tasks");
     expect(data.etag).toBeDefined();
 
     // Verify the file was created with correct frontmatter
-    const readResult = await readFile("/vault/Base items/Tasks/Write tests.md", config);
+    const readResult = await readFile("/vault/Bases/Tasks/Write tests.md", config);
     const readData = getTestResult(readResult) as { content: string };
     expect(readData.content).toContain("Status: Not started");
     expect(readData.content).toContain("Priority: 2");
@@ -213,7 +213,7 @@ describe("createBaseItem", () => {
   it("creates the item folder if it does not exist", async () => {
     vol.writeFileSync(
       "/vault/NewBase.base",
-      `filters:\n  and:\n    - file.inFolder("Base items/NewItems")\nviews:\n  - type: table\n    name: All\n`
+      `filters:\n  and:\n    - file.inFolder("Bases/NewItems")\nviews:\n  - type: table\n    name: All\n`
     );
 
     const result = await createBaseItem(
